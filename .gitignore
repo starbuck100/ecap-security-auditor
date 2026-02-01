@@ -1,0 +1,22 @@
+# Credentials - NEVER commit
+config/credentials.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Reports (local only)
+reports/
+*.report.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
