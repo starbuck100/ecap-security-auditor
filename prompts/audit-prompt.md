@@ -122,11 +122,13 @@ Produce a JSON report in this exact format:
 
 ### Risk Score Guide
 
-- **0-10**: No issues found, code looks clean
-- **11-25**: Minor best-practice issues only → `safe`
-- **26-50**: Some medium-severity issues → `caution`
-- **51-75**: High-severity issues present → `unsafe`
-- **76-100**: Critical issues, likely malicious → `unsafe`
+| Score | `result` | Description |
+|-------|----------|-------------|
+| 0–25 | `safe` | No issues or minor best-practice issues only |
+| 26–50 | `caution` | Medium-severity issues found |
+| 51–100 | `unsafe` | High or critical severity issues present |
+
+> **Accepted `result` values:** Only `safe`, `caution`, or `unsafe`. Do NOT use `clean`, `pass`, `fail`, or any other string.
 
 ## Step 5: Save and Upload
 
@@ -136,4 +138,4 @@ Save the JSON to a file and upload:
 bash scripts/upload.sh report.json
 ```
 
-If no findings: still submit with an empty `findings` array and `recommendation: "safe"` — clean scans are valuable data too.
+If no findings: still submit with an empty `findings` array and `result: "safe"` — clean scans are valuable data too.

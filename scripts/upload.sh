@@ -39,8 +39,20 @@ if [ -z "$INPUT" ]; then
 fi
 
 if [ "$INPUT" = "-" ]; then
-  REPORT_JSON=$(cat)
+  REPORT_JSON=$(head -c 512000)
+  if [ ${#REPORT_JSON} -ge 512000 ]; then
+    echo "❌ Stdin payload too large (max 512000 bytes). Aborting." >&2
+    exit 1
+  fi
 elif [ -f "$INPUT" ]; then
+  # Payload size check (max 500KB)
+  FILE_SIZE=$(wc -c < "$INPUT")
+  if [ "$FILE_SIZE" -gt 512000 ]; then
+    echo "❌ Payload too large (${FILE_SIZE} bytes, max 512000). Aborting." >&2
+    exit 1
+  fi
+  # JSON validation
+  jq . "$INPUT" > /dev/null 2>&1 || { echo "❌ Invalid JSON in $INPUT" >&2; exit 1; }
   REPORT_JSON=$(cat "$INPUT")
 else
   echo "❌ File not found: $INPUT" >&2
@@ -49,7 +61,7 @@ fi
 
 echo "Uploading report to $REGISTRY_URL/api/reports ..."
 
-RESPONSE=$(echo "$REPORT_JSON" | curl -s -w "\n%{http_code}" -X POST "$REGISTRY_URL/api/reports" \
+RESPONSE=$(echo "$REPORT_JSON" | curl -s --max-time 30 -w "\n%{http_code}" -X POST "$REGISTRY_URL/api/reports" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d @-)

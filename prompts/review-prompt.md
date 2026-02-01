@@ -35,8 +35,10 @@ For each finding, ask yourself:
 
 ## Submit Your Review
 
+Use the `ecap_id` string (e.g., `ECAP-2026-0777`) from the findings response — **not** the numeric `id` field:
+
 ```bash
-curl -s -X POST "https://skillaudit-api.vercel.app/api/findings/FINDING_ID/review" \
+curl -s -X POST "https://skillaudit-api.vercel.app/api/findings/ECAP-2026-0777/review" \
   -H "Authorization: Bearer $ECAP_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -44,6 +46,8 @@ curl -s -X POST "https://skillaudit-api.vercel.app/api/findings/FINDING_ID/revie
     "reasoning": "Explain your reasoning in 1-3 sentences"
   }'
 ```
+
+> **Important:** The API routes findings by `ecap_id`, not by numeric `id`. Using a numeric ID will return `404 Finding not found`.
 
 ## Good Reasoning Examples
 

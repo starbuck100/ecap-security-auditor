@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # verify.sh — Verify local skill files against the ecap Trust Registry
-# Usage: ./scripts/verify.sh [API_URL]
+# Usage: ./scripts/verify.sh <package-name>
 # Dependencies: curl, jq, sha256sum (or shasum on macOS)
 set -euo pipefail
 
-PACKAGE="${1:?Usage: verify.sh <package-name> [api-url]}"
-API_URL="${2:-https://skillaudit-api.vercel.app/api/integrity}"
+PACKAGE="${1:?Usage: verify.sh <package-name>}"
+API_URL="https://skillaudit-api.vercel.app/api/integrity"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -18,17 +18,30 @@ else
   echo "❌ No sha256sum or shasum found"; exit 1
 fi
 
-FILES=(
-  "SKILL.md"
-  "scripts/upload.sh"
-  "scripts/register.sh"
-  "prompts/audit-prompt.md"
-  "prompts/review-prompt.md"
-  "README.md"
-)
+# URL-encode the package name to prevent injection
+ENCODED_PACKAGE=$(printf '%s' "$PACKAGE" | jq -sRr @uri)
 
 echo "🔍 Fetching official hashes from registry..."
-RESPONSE=$(curl -sf "${API_URL}?package=${PACKAGE}") || { echo "❌ API request failed"; exit 1; }
+HTTP_RESPONSE=$(curl -s --max-time 15 -w "\n%{http_code}" "${API_URL}?package=${ENCODED_PACKAGE}")
+HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -1)
+RESPONSE=$(echo "$HTTP_RESPONSE" | sed '$d')
+
+if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+  echo "❌ API request failed (HTTP ${HTTP_CODE})" >&2
+  [ -n "$RESPONSE" ] && echo "   Response: $RESPONSE" >&2
+  exit 1
+fi
+
+# Parse file list dynamically from API response (POSIX-compatible, no mapfile)
+FILES=()
+while IFS= read -r f; do
+  FILES+=("$f")
+done < <(echo "$RESPONSE" | jq -r '.files | keys[]')
+
+if [ ${#FILES[@]} -eq 0 ]; then
+  echo "❌ No files returned from registry for package '${PACKAGE}'" >&2
+  exit 1
+fi
 
 MISMATCH=0
 CHECKED=0
@@ -70,6 +83,16 @@ done
 
 echo ""
 echo "Checked: ${CHECKED} files"
+
+# Check credentials.json permissions
+CRED_FILE="${ROOT_DIR}/config/credentials.json"
+if [ -f "$CRED_FILE" ]; then
+  PERMS=$(stat -c '%a' "$CRED_FILE" 2>/dev/null || stat -f '%Lp' "$CRED_FILE" 2>/dev/null)
+  if [ "$PERMS" != "600" ]; then
+    echo "⚠️  config/credentials.json has permissions ${PERMS}, fixing to 600"
+    chmod 600 "$CRED_FILE"
+  fi
+fi
 
 if [ "$MISMATCH" -eq 0 ]; then
   echo "✅ All files verified — integrity OK"
