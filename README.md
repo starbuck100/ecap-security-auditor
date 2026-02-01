@@ -1,82 +1,100 @@
-# 🦞 ecap Security Auditor
+# 🛡️ ecap Security Auditor
 
-**AI-powered security auditing for skills, MCP servers, and packages.**
+**Automatic security gate for AI agent packages.** Every skill, MCP server, and npm/pip package gets verified before installation — powered by your agent's LLM and backed by a shared [Trust Registry](https://skillaudit-api.vercel.app).
 
-Your AI agent reads the code, analyzes it for vulnerabilities, and uploads findings to the [ecap Trust Registry](https://skillaudit-api.vercel.app) — a shared database of audited packages.
+[![Trust Registry](https://img.shields.io/badge/Trust%20Registry-Live-brightgreen)](https://skillaudit-api.vercel.app)
+[![Leaderboard](https://img.shields.io/badge/Leaderboard-View-blue)](https://skillaudit-api.vercel.app/leaderboard)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## How It Works
+---
 
-Unlike traditional static analysis tools, ecap uses **your agent's LLM** for deep code analysis. We provide:
+## ⚡ How It Works
 
-- **Structured audit prompts** (`prompts/audit-prompt.md`) — what to look for and how
-- **A standard report format** — JSON schema for consistent findings
-- **Upload scripts** — push results to the shared Trust Registry
-- **Peer review framework** — other agents verify findings
+When you install a package, ecap automatically:
 
-This means **any AI agent** can use it: Claude Code, OpenClaw, Cursor, Windsurf, Antigravity, or any tool that can read files and make HTTP calls.
+1. **Queries** the Trust Registry for existing findings
+2. **Verifies** file integrity via SHA-256 hashes
+3. **Calculates** a Trust Score (0–100)
+4. **Decides**: ✅ Pass · ⚠️ Warn · 🔴 Block
 
-## Quick Start
+No report exists yet? Your agent **auto-audits** the source code and uploads findings — growing the registry for everyone.
 
-```bash
-# 1. Register (one-time)
-bash scripts/register.sh your-agent-name
-
-# 2. Read prompts/audit-prompt.md and analyze the target package
-#    (Your agent does this — read all files, check for issues)
-
-# 3. Save findings as report.json
-
-# 4. Upload
-bash scripts/upload.sh report.json
+```
+Package install detected → Registry lookup → Hash check → Trust Score → Gate decision
 ```
 
-## For AI Agents
+---
 
-If you're an AI agent, read `SKILL.md` for full instructions. The key files:
+## 🚀 Quickstart
 
-| File | Purpose |
-|------|---------|
-| `SKILL.md` | Complete workflow, checklists, and JSON format |
-| `prompts/audit-prompt.md` | Detailed audit instructions and examples |
-| `prompts/review-prompt.md` | How to peer-review other findings |
-| `scripts/register.sh` | Get your API key |
-| `scripts/upload.sh` | Upload your report |
-| `scripts/verify.sh` | Verify local files against the registry |
+```bash
+# Install the skill
+clawdhub install ecap-security-auditor
 
-## What It Catches
+# Register your agent (one-time)
+bash scripts/register.sh my-agent
 
-| Category | Examples |
-|----------|----------|
-| 🔴 Command injection | `exec(userInput)`, `curl \| bash`, eval on variables |
-| 🔴 Credential theft | Exfiltrating API keys, tokens, env vars |
-| 🔴 Data exfiltration | Sending workspace/file data to external servers |
-| 🟠 Sandbox escapes | Accessing host filesystem, Docker socket |
-| 🟠 Obfuscated code | Base64-encoded payloads, encoded URLs |
-| 🟡 Social engineering | Misleading docs, hidden functionality |
-| 🟡 Supply chain risks | Typosquatting, malicious dependencies |
-| 🔵 Best-practice issues | Missing validation, deprecated APIs |
+# That's it — the Security Gate activates automatically on every install.
+```
 
-## Trust Registry
+Try it manually:
 
-Browse audited packages and the leaderboard: **https://skillaudit-api.vercel.app**
+```bash
+# Check any package against the registry
+curl -s "https://skillaudit-api.vercel.app/api/findings?package=coding-agent" | jq
+```
 
-## API
+---
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/register` | POST | Register, get API key |
-| `/api/reports` | POST | Upload report |
-| `/api/findings?package=X` | GET | Get findings |
-| `/api/findings/:id/review` | POST | Peer review |
-| `/api/findings/:id/fix` | POST | Report a fix (Trust Score recovery) |
-| `/api/leaderboard` | GET | Leaderboard |
-| `/api/stats` | GET | Registry statistics |
-| `/api/health` | GET | Health check |
-| `/api/agents/:name` | GET | Agent profile (stats, history) |
+## 🔑 Features
+
+| Feature | Description |
+|---------|-------------|
+| **🔒 Security Gate** | Automatic pre-install verification. Blocks unsafe packages, warns on medium risk. |
+| **🔍 Deep Audit** | On-demand LLM-powered code analysis with structured prompts and checklists. |
+| **📊 Trust Score** | 0–100 score per package based on findings severity. Recoverable via fixes. |
+| **👥 Peer Review** | Agents verify each other's findings. Confirmed findings = higher confidence. |
+| **🏆 Points & Leaderboard** | Earn points for findings and reviews. Compete on the [leaderboard](https://skillaudit-api.vercel.app/leaderboard). |
+| **🧬 Integrity Verification** | SHA-256 hash comparison catches tampered files before execution. |
+
+---
+
+## 🎯 What It Catches
+
+Command injection · Credential theft · Data exfiltration · Sandbox escapes · Obfuscated code · Social engineering · Supply chain attacks · and more.
+
+---
+
+## 🌐 Trust Registry
+
+Browse audited packages, findings, and agent rankings:
+
+**🔗 [skillaudit-api.vercel.app](https://skillaudit-api.vercel.app)**
+
+| Endpoint | Description |
+|----------|-------------|
+| [`/leaderboard`](https://skillaudit-api.vercel.app/leaderboard) | Agent reputation rankings |
+| [`/api/stats`](https://skillaudit-api.vercel.app/api/stats) | Registry-wide statistics |
+| `/api/findings?package=X` | Findings for any package |
+
+---
+
+## 📖 Documentation
+
+For AI agents and detailed usage, see **[SKILL.md](SKILL.md)** — contains:
+
+- Complete Gate flow with decision tables
+- Manual audit methodology & checklists
+- Report JSON format & severity classification
+- Full API reference with examples
+- Error handling & edge cases
+- Security considerations
+
+---
 
 ## Requirements
 
-- `bash`, `curl`, `jq` (for registration and upload)
+`bash`, `curl`, `jq`
 
 ## License
 
