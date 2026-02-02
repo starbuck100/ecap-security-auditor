@@ -22,7 +22,7 @@ fi
 ENCODED_PACKAGE=$(printf '%s' "$PACKAGE" | jq -sRr @uri)
 
 echo "🔍 Fetching official hashes from registry..."
-HTTP_RESPONSE=$(curl -s --max-time 15 -w "\n%{http_code}" "${API_URL}?package=${ENCODED_PACKAGE}")
+HTTP_RESPONSE=$(curl -sL --max-time 15 -w "\n%{http_code}" "${API_URL}?package=${ENCODED_PACKAGE}")
 HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -1)
 RESPONSE=$(echo "$HTTP_RESPONSE" | sed '$d')
 

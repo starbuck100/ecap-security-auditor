@@ -61,11 +61,14 @@ fi
 
 SCORE=$(echo "$RESPONSE" | jq '
   [.findings // [] | .[] | select(.by_design != true and .by_design != "true") |
-    if .severity == "critical" then -25
+    .component_type as $ct |
+    (if .severity == "critical" then -25
     elif .severity == "high" then -15
     elif .severity == "medium" then -8
     elif .severity == "low" then -3
-    else 0 end
+    else 0 end) |
+    if $ct == "hook" or $ct == "mcp" or $ct == "settings" then . * 12 / 10
+    else . end
   ] | 100 + add
 ')
 
@@ -98,7 +101,7 @@ if [[ "$SCORE" -ge 70 ]]; then
 elif [[ "$SCORE" -ge 40 ]]; then
   build_output "warning" "Score ${SCORE}/100 — review findings before installing" 2
   # Show top findings for agent
-  echo "$RESPONSE" | jq -c '[.findings[]|select(.status!="by_design")|{severity,title,status}][:5]' >&2
+  echo "$RESPONSE" | jq -c '[.findings[]|select(.by_design!=true and .by_design!="true")|{severity,title,by_design}][:5]' >&2
   exit 2
 else
   build_output "block" "Score ${SCORE}/100 — too risky, installation blocked" 1
