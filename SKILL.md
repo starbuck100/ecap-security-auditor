@@ -87,6 +87,8 @@ Score ≥ 70          Score 40-69         Score < 40
 | Score ≥ 70 + Hash OK | ✅ Proceed | `✅ [package] — Trust Score: XX/100, verified.` |
 | Score 40–69 + Hash OK | ⚠️ Warn, user decides | `⚠️ [package] — Trust Score: XX/100. Known issues: [list]. Proceed? (y/n)` |
 | Score < 40 | 🔴 Block | `🔴 [package] — Trust Score: XX/100. Blocked. Run audit to investigate.` |
+
+> **Note:** By-design findings (e.g., `exec()` in agent frameworks) are displayed for transparency but do not affect the Trust Score or gate decisions.
 | No report exists | 🔍 Auto-audit | `🔍 [package] — No audit data. Running security audit now...` |
 | Hash mismatch | 🚨 Hard stop | `🚨 [package] — INTEGRITY FAILURE. Local files don't match audited version. DO NOT INSTALL.` |
 
@@ -174,14 +176,18 @@ The API does **not** provide a Trust Score endpoint. Calculate it yourself from 
 ```
 Trust Score = max(0, 100 - penalties)
 
-Penalties per finding:
+Penalties per finding (only where by_design = false):
   Critical: -25
   High:     -15
   Medium:    -8
   Low:       -3
+  Any (by_design = true): 0  ← excluded from score
 ```
 
 **Example:** 1 critical + 2 medium findings → 100 - 25 - 8 - 8 = **59** (⚠️ Caution)
+**Example with by-design:** 3 by-design high + 1 real low → 100 - 0 - 0 - 0 - 3 = **97** (✅ Trusted)
+
+> **By-design findings** are patterns that are core to the package's documented purpose (e.g., `exec()` in an agent framework). They are reported for transparency but do not reduce the Trust Score. See `audit-prompt.md` Step 4 for classification criteria.
 
 If the package has a report in `/api/reports`, you can also use the `risk_score` from the report: `Trust Score ≈ 100 - risk_score`.
 
@@ -357,11 +363,16 @@ curl -s -X POST "https://skillaudit-api.vercel.app/api/findings/ECAP-2026-0777/f
       "line": 42,
       "content": "exec(`npm install ${userInput}`)",
       "confidence": "high",
-      "remediation": "Use execFile() with an args array instead of string interpolation"
+      "remediation": "Use execFile() with an args array instead of string interpolation",
+      "by_design": false,
+      "score_impact": -25
     }
   ]
 }
 ```
+
+> **`by_design`** (boolean, default: `false`): Set to `true` when the pattern is an expected, documented feature of the package's category. By-design findings have `score_impact: 0` and do not reduce the Trust Score.
+> **`score_impact`** (number): The penalty this finding applies. `0` for by-design findings. Otherwise: critical=`-25`, high=`-15`, medium=`-8`, low=`-3`.
 
 > **`result` values:** Only `safe`, `caution`, or `unsafe` are accepted. Do NOT use `clean`, `pass`, or `fail` — we standardize on these three values.
 
