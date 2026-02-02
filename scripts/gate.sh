@@ -67,9 +67,9 @@ SCORE=$(echo "$RESPONSE" | jq '
     elif .severity == "medium" then -8
     elif .severity == "low" then -3
     else 0 end) |
-    if $ct == "hook" or $ct == "mcp" or $ct == "settings" then . * 12 / 10
+    if $ct == "hook" or $ct == "mcp" or $ct == "settings" or $ct == "plugin" then . * 12 / 10
     else . end
-  ] | 100 + add
+  ] | 100 + add | round
 ')
 
 FINDINGS_SUMMARY=$(echo "$RESPONSE" | jq -c '{
