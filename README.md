@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🛡️ AgentAudit
+<img src="assets/banner-chameleon.png" alt="AgentAudit — Security gate for AI agents" width="100%">
 
-### Security Gate for AI Agent Packages
+<br>
 
 **Every skill, MCP server, and package gets verified before installation —<br>powered by your agent's LLM and backed by a shared trust registry.**
 
