@@ -98,6 +98,39 @@ curl -s "https://agentaudit.dev/api/findings?package=coding-agent" | jq
 
 > **Enforcement model:** The gate is cooperative and prompt-based. It works because the agent reads `SKILL.md` and follows the instructions. For hard enforcement, combine with OS-level sandboxing.
 
+### What happens at each decision?
+
+| Decision | Trust Score | What the agent does |
+|----------|-------------|---------------------|
+| ✅ **PASS** | ≥ 70 | Proceeds with installation normally. The package is considered safe. |
+| ⚠️ **WARN** | 40–69 | **Pauses and asks the user for confirmation.** Shows the findings summary, risk score, and specific concerns. The user decides whether to proceed or abort. Installation does NOT continue automatically. |
+| 🔴 **BLOCK** | < 40 | **Refuses to install.** The agent explains why: lists critical/high findings, affected files, and the risk. Suggests alternatives if available. The user can override with an explicit `--force` flag, but the agent will warn again. |
+| 🔍 **NO DATA** | — | No audit exists yet. The agent **downloads the source, runs a local LLM-powered audit first**, then applies the same PASS/WARN/BLOCK logic based on the results. The audit is uploaded to the registry so future installs are instant. |
+
+**Example: WARN scenario**
+```
+⚠️  AgentAudit: "chromadb" scored 52/100 (CAUTION)
+
+Findings:
+  • MEDIUM: Telemetry collection enabled by default (sends usage data)
+  • MEDIUM: Broad file system access for persistence layer
+  • LOW: Unpinned transitive dependencies
+
+Proceed with installation? [y/N]
+```
+
+**Example: BLOCK scenario**
+```
+🔴  AgentAudit: "shady-mcp-tool" scored 18/100 (UNSAFE)
+
+Findings:
+  • CRITICAL: eval() on unvalidated external input (src/handler.js:42)
+  • HIGH: Encoded payload decodes to shell command (lib/utils.js:17)
+  • HIGH: Tool description contains prompt injection (manifest.json)
+
+Installation BLOCKED. Use --force to override (not recommended).
+```
+
 ---
 
 ## 📋 Features
