@@ -29,3 +29,5 @@ Thumbs.db
 .vscode/
 .idea/
 *.bak
+.clawdhub/
+.clawhub/
