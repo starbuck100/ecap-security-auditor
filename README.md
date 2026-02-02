@@ -22,20 +22,19 @@
 - [What is AgentAudit?](#what-is-agentaudit)
 - [Highlights](#-highlights)
 - [Quick Start](#-quick-start)
+- [Recommended Models](#-recommended-models)
 - [How It Works](#️-how-it-works)
 - [Features](#-features)
 - [What It Catches](#-what-it-catches)
+- [Usage Examples](#-usage-examples)
 - [Trust Registry](#-trust-registry)
 - [API Quick Reference](#-api-quick-reference)
 - [Cross-Platform](#️-cross-platform)
-- [What's New in v2](#-whats-new-in-v2)
-- [Documentation](#-documentation)
 - [Prerequisites](#-prerequisites)
-- [Recommended Models](#-recommended-models)
-- [Usage Examples](#-usage-examples)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
+- [Limitations](#️-important-limitations--honest-expectations)
 - [FAQ](#-faq)
+- [What's New in v2](#-whats-new-in-v2)
+- [Contributing](#-contributing)
 - [License](#-license)
 
 ---
@@ -93,6 +92,23 @@ curl -s "https://agentaudit.dev/api/findings?package=coding-agent" | jq
   "last_audited": "2026-01-15T10:30:00Z"
 }
 ```
+
+---
+
+## 🧠 Recommended Models
+
+AgentAudit's LLM-powered audits work best with large, capable models that can reason about code security:
+
+| Model | Quality | Type | Notes |
+|-------|---------|------|-------|
+| **Claude Opus 4.5** ⭐ | Best | Proprietary | Recommended. Deepest code understanding, fewest false positives |
+| **Claude Sonnet 4** | Great | Proprietary | Best balance of speed and quality for batch audits |
+| **GPT-5.2** | Great | Proprietary | Strong reasoning, good at complex attack chain detection |
+| **Kimi K2.5** | Great | Open Source | Best open-source option — near-proprietary quality |
+| **GLM-4.7** | Great | Open Source | Excellent for local/private audits, strong code understanding |
+| **Gemini 2.5 Pro** | Good | Proprietary | Works well, especially for larger codebases |
+
+> **Smaller models (<30B) are not recommended** — they miss subtle attack patterns. For batch auditing: **Sonnet 4**. For critical packages: **Opus 4.5**. For local/private: **Kimi K2.5** or **GLM-4.7**.
 
 ---
 
@@ -383,25 +399,6 @@ sudo apt-get install -y curl jq
 
 ---
 
-## 🧠 Recommended Models
-
-AgentAudit's LLM-powered audits work best with large, capable models that can reason about code security:
-
-| Model | Quality | Notes |
-|-------|---------|-------|
-| **Claude Opus 4.5** ⭐ | Best | Recommended. Deepest code understanding, fewest false positives |
-| **Claude Sonnet 4** | Great | Best balance of speed and quality for batch audits |
-| **GPT-4o** | Great | Strong alternative, good at pattern detection |
-| **Claude 4.5** | Great | Fast and capable, solid for most audits |
-| **Gemini 2.5 Pro** | Good | Works well, especially for larger codebases |
-| **Llama 3.3 70B+** | Good | Best open-source option for local/private audits |
-
-> **Smaller models (<30B parameters) are not recommended** — they tend to miss subtle attack patterns and produce more false positives. Security auditing requires strong reasoning capabilities.
-
-For batch auditing many packages, **Claude Sonnet 4** offers the best cost/quality ratio. For critical packages where accuracy matters most, use **Claude Opus 4.5**.
-
----
-
 ## 💡 Usage Examples
 
 ### Example 1: Installing a Safe Package
@@ -646,27 +643,6 @@ Use all three for comprehensive security.
 ### Q: What license is AgentAudit under?
 
 **A:** AGPL-3.0 with a commercial license option. The scanner/CLI is AGPL — free to use, modify, and distribute. If you host it as a service, you must publish your source (or get a commercial license). See [LICENSE](LICENSE).
-
----
-
-## 🧠 Recommended Models
-
-AgentAudit's LLM-powered audits work best with large, capable models that can reason about code security:
-
-| Model | Quality | Type | Notes |
-|-------|---------|------|-------|
-| **Claude Opus 4.5** ⭐ | Best | Proprietary | Recommended. Deepest code understanding, fewest false positives |
-| **Claude Sonnet 4** | Great | Proprietary | Best balance of speed and quality for batch audits |
-| **GPT-5.2** | Great | Proprietary | Strong reasoning, good at complex attack chain detection |
-| **Kimi K2.5** | Great | Open Source | Best open-source option — near-proprietary quality |
-| **GLM-4.7** | Great | Open Source | Excellent for local/private audits, strong code understanding |
-| **Gemini 2.5 Pro** | Good | Proprietary | Works well, especially for larger codebases |
-
-> **Smaller models (<30B parameters) are not recommended** — they tend to miss subtle attack patterns and produce more false positives. Security auditing requires strong reasoning capabilities.
-
-**For batch auditing** many packages: **Claude Sonnet 4** (best cost/quality ratio).
-**For critical packages** where accuracy matters most: **Claude Opus 4.5**.
-**For local/private audits** without API costs: **Kimi K2.5** or **GLM-4.7**.
 
 ---
 
