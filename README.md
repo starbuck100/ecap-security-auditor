@@ -648,7 +648,7 @@ Use all three for comprehensive security.
 
 ## 📄 License
 
-[AGPL-3.0](LICENSE) — Free for open source use. Commercial license available for proprietary integrations and SaaS deployments. [Contact us](https://agentaudit.dev/contact) for details.
+[AGPL-3.0](LICENSE) — Free for open source use. Commercial license available for proprietary integrations and SaaS deployments. [Contact us](https://github.com/starbuck100/agentaudit-web/issues) for details.
 
 ---
 
