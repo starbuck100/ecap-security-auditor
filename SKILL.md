@@ -58,7 +58,40 @@ This gate is **cooperative/instruction-based** — it works because the agent re
 | 0 | ✅ PASS | Safe — already installed by gate |
 | 1 | 🔴 BLOCKED | Do NOT install. Show user why. |
 | 2 | ⚠️ WARNING | Show findings, let user decide |
-| 3 | 🔍 UNKNOWN | No audit data yet or API unreachable — triggers auto-audit (not a deny; package is unverified, not blocked) |
+| 3 | 🔍 UNKNOWN | **STOP AND WARN.** No audit data = unverified, NOT safe. See below. |
+
+### ⚠️ CRITICAL: Exit Code 3 — The Audit Gap
+
+**"Unknown" does NOT mean "safe". It means "nobody has looked yet".**
+
+When exit code 3 occurs, you MUST:
+
+1. **WARN the user explicitly:**
+   ```
+   ⚠️ UNKNOWN PACKAGE: [name]
+   
+   This package has NO security audit data. Zero findings can mean:
+   - ✅ No problems found
+   - ❌ Nobody has checked yet
+   
+   We cannot verify this package is safe.
+   ```
+
+2. **Check these red flags manually:**
+   - 📅 **Age:** Package < 30 days old? → Higher risk
+   - 📊 **Downloads:** < 100 weekly downloads? → Higher risk  
+   - 👤 **Author:** New author with no other packages? → Higher risk
+   - 🔀 **Name:** Similar to popular package (typosquat)? → Higher risk
+
+3. **Require explicit user confirmation:**
+   ```
+   Proceed with installation despite no audit data? (yes/no)
+   ```
+   Do NOT auto-install. Do NOT assume safe.
+
+4. **Trigger auto-audit** if user confirms — then re-check before install.
+
+**The agents getting compromised aren't careless — they trust "no findings" as a green light.**
 
 **You do NOT need user permission to run the gate check. Just do it. Every time.**
 
