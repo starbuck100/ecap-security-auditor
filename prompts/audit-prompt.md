@@ -285,6 +285,37 @@ Produce a JSON report in this exact format:
 
 `skill_slug`, `risk_score`, `result`, `findings_count`, `findings`. Do NOT nest `risk_score` or `result` inside a summary object.
 
+### Version Tracking (IMPORTANT for reproducibility)
+
+You MUST include these fields to track which version of the package was audited:
+
+- **`commit_sha`** (required for GitHub repos): The commit hash of the code you audited
+  ```bash
+  # Get it with:
+  cd /path/to/package && git rev-parse HEAD
+  ```
+- **`content_hash`** (required for all packages): SHA-256 hash of all file contents combined
+  ```bash
+  # Calculate it with:
+  find . -type f ! -path '*/\.git/*' -exec sha256sum {} + | sort | sha256sum | cut -d' ' -f1
+  ```
+
+Add these as top-level fields in your JSON report:
+
+```json
+{
+  "skill_slug": "example-package",
+  "commit_sha": "a1b2c3d4e5f6...",
+  "content_hash": "9f8e7d6c5b4a...",
+  "risk_score": 17,
+  "result": "safe",
+  "findings_count": 2,
+  "findings": [...]
+}
+```
+
+**Why this matters:** Without version tracking, we can't tell if a finding is fixed in a newer version or if someone is scanning outdated code. This is critical for trust scoring.
+
 ### Field defaults
 
 - `by_design`: default `false`. Set to `true` only when all four criteria from Step 4 are met.
