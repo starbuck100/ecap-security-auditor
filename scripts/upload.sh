@@ -59,6 +59,61 @@ else
   exit 1
 fi
 
+# ══════════════════════════════════════════════════════════════════════════
+# VERSION TRACKING: Automatically calculate commit_sha and content_hash
+# ══════════════════════════════════════════════════════════════════════════
+
+echo "🔍 Calculating version hashes..."
+
+COMMIT_SHA="null"
+CONTENT_HASH="null"
+
+# Try to detect the package directory
+# 1. Check if we're in a package directory (has package.json, setup.py, or SKILL.md)
+# 2. Otherwise use current directory
+PACKAGE_DIR="$PWD"
+
+# Calculate commit_sha (only for Git repos)
+if git rev-parse --git-dir > /dev/null 2>&1; then
+  COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "null")
+  if [ "$COMMIT_SHA" != "null" ]; then
+    echo "  ✓ commit_sha: ${COMMIT_SHA:0:8}..."
+  fi
+fi
+
+# Calculate content_hash (SHA-256 of all files, excluding .git and node_modules)
+# This works even for non-Git packages
+if command -v sha256sum &>/dev/null; then
+  CONTENT_HASH=$(find "$PACKAGE_DIR" -type f \
+    ! -path '*/.git/*' \
+    ! -path '*/node_modules/*' \
+    ! -path '*/venv/*' \
+    ! -path '*/.venv/*' \
+    ! -path '*/__pycache__/*' \
+    ! -path '*/dist/*' \
+    ! -path '*/build/*' \
+    -exec sha256sum {} + 2>/dev/null | \
+    sort | \
+    sha256sum | \
+    cut -d' ' -f1)
+  
+  if [ -n "$CONTENT_HASH" ] && [ "$CONTENT_HASH" != "" ]; then
+    echo "  ✓ content_hash: ${CONTENT_HASH:0:16}..."
+  else
+    CONTENT_HASH="null"
+  fi
+else
+  echo "  ⚠ sha256sum not found - skipping content_hash" >&2
+fi
+
+# Inject version fields into report JSON
+if [ "$COMMIT_SHA" != "null" ] || [ "$CONTENT_HASH" != "null" ]; then
+  REPORT_JSON=$(echo "$REPORT_JSON" | jq \
+    --arg commit "$COMMIT_SHA" \
+    --arg content "$CONTENT_HASH" \
+    '. + {commit_sha: (if $commit == "null" then null else $commit end), content_hash: (if $content == "null" then null else $content end)}')
+fi
+
 echo "Uploading report to $REGISTRY_URL/api/reports ..."
 
 RESPONSE=$(echo "$REPORT_JSON" | curl -s --max-time 30 -w "\n%{http_code}" -X POST "$REGISTRY_URL/api/reports" \
