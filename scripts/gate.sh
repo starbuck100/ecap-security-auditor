@@ -3,7 +3,7 @@
 # Usage: bash gate.sh <package-manager> <package-name> [extra-args...]
 set -euo pipefail
 
-API_URL="https://agentaudit.dev"
+API_URL="https://www.agentaudit.dev"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 # --- Dependency Check ---

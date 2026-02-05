@@ -15,7 +15,7 @@ for cmd in curl jq; do
 done
 
 # Registry URL — override with ECAP_REGISTRY_URL for self-hosting
-REGISTRY_URL="${ECAP_REGISTRY_URL:-https://agentaudit.dev}"
+REGISTRY_URL="${ECAP_REGISTRY_URL:-https://www.agentaudit.dev}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CRED_FILE="$SCRIPT_DIR/../config/credentials.json"
 
@@ -63,47 +63,57 @@ fi
 # VERSION TRACKING: Automatically calculate commit_sha and content_hash
 # ══════════════════════════════════════════════════════════════════════════
 
-echo "🔍 Calculating version hashes..."
+# Check if report already has version fields
+EXISTING_COMMIT=$(echo "$REPORT_JSON" | jq -r '.commit_sha // "null"')
+EXISTING_CONTENT=$(echo "$REPORT_JSON" | jq -r '.content_hash // "null"')
 
-COMMIT_SHA="null"
-CONTENT_HASH="null"
-
-# Try to detect the package directory
-# 1. Check if we're in a package directory (has package.json, setup.py, or SKILL.md)
-# 2. Otherwise use current directory
-PACKAGE_DIR="$PWD"
-
-# Calculate commit_sha (only for Git repos)
-if git rev-parse --git-dir > /dev/null 2>&1; then
-  COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "null")
-  if [ "$COMMIT_SHA" != "null" ]; then
-    echo "  ✓ commit_sha: ${COMMIT_SHA:0:8}..."
-  fi
+if [ "$EXISTING_COMMIT" != "null" ] || [ "$EXISTING_CONTENT" != "null" ]; then
+  echo "ℹ️  Report already contains version info - skipping auto-calculation"
+else
+  echo "🔍 Calculating version hashes..."
 fi
 
-# Calculate content_hash (SHA-256 of all files, excluding .git and node_modules)
-# This works even for non-Git packages
-if command -v sha256sum &>/dev/null; then
-  CONTENT_HASH=$(find "$PACKAGE_DIR" -type f \
-    ! -path '*/.git/*' \
-    ! -path '*/node_modules/*' \
-    ! -path '*/venv/*' \
-    ! -path '*/.venv/*' \
-    ! -path '*/__pycache__/*' \
-    ! -path '*/dist/*' \
-    ! -path '*/build/*' \
-    -exec sha256sum {} + 2>/dev/null | \
-    sort | \
-    sha256sum | \
-    cut -d' ' -f1)
-  
-  if [ -n "$CONTENT_HASH" ] && [ "$CONTENT_HASH" != "" ]; then
-    echo "  ✓ content_hash: ${CONTENT_HASH:0:16}..."
-  else
-    CONTENT_HASH="null"
+COMMIT_SHA="${EXISTING_COMMIT}"
+CONTENT_HASH="${EXISTING_CONTENT}"
+
+# Only calculate if fields are missing
+if [ "$COMMIT_SHA" = "null" ] || [ "$CONTENT_HASH" = "null" ]; then
+  # Try to detect the package directory
+  # 1. Check if we're in a package directory (has package.json, setup.py, or SKILL.md)
+  # 2. Otherwise use current directory
+  PACKAGE_DIR="$PWD"
+
+  # Calculate commit_sha (only for Git repos and if not already set)
+  if [ "$COMMIT_SHA" = "null" ] && git rev-parse --git-dir > /dev/null 2>&1; then
+    COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "null")
+    if [ "$COMMIT_SHA" != "null" ]; then
+      echo "  ✓ commit_sha: ${COMMIT_SHA:0:8}..."
+    fi
   fi
-else
-  echo "  ⚠ sha256sum not found - skipping content_hash" >&2
+
+  # Calculate content_hash (SHA-256 of all files, if not already set)
+  if [ "$CONTENT_HASH" = "null" ] && command -v sha256sum &>/dev/null; then
+    CONTENT_HASH=$(find "$PACKAGE_DIR" -type f \
+      ! -path '*/.git/*' \
+      ! -path '*/node_modules/*' \
+      ! -path '*/venv/*' \
+      ! -path '*/.venv/*' \
+      ! -path '*/__pycache__/*' \
+      ! -path '*/dist/*' \
+      ! -path '*/build/*' \
+      -exec sha256sum {} + 2>/dev/null | \
+      sort | \
+      sha256sum | \
+      cut -d' ' -f1)
+    
+    if [ -n "$CONTENT_HASH" ] && [ "$CONTENT_HASH" != "" ]; then
+      echo "  ✓ content_hash: ${CONTENT_HASH:0:16}..."
+    else
+      CONTENT_HASH="null"
+    fi
+  elif [ "$CONTENT_HASH" = "null" ]; then
+    echo "  ⚠ sha256sum not found - skipping content_hash" >&2
+  fi
 fi
 
 # Inject version fields into report JSON

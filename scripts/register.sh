@@ -13,7 +13,7 @@ for cmd in curl jq; do
   fi
 done
 
-REGISTRY_URL="${ECAP_REGISTRY_URL:-https://agentaudit.dev}"
+REGISTRY_URL="${ECAP_REGISTRY_URL:-https://www.agentaudit.dev}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CRED_FILE="$SCRIPT_DIR/../config/credentials.json"
 

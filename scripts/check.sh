@@ -4,7 +4,7 @@
 # Returns trust score and findings without installing anything.
 set -euo pipefail
 
-API_URL="${AGENTAUDIT_REGISTRY_URL:-https://agentaudit.dev}"
+API_URL="${AGENTAUDIT_REGISTRY_URL:-https://www.agentaudit.dev}"
 
 for cmd in jq curl; do
   if ! command -v "$cmd" &>/dev/null; then

@@ -5,7 +5,7 @@
 set -euo pipefail
 
 PACKAGE="${1:?Usage: verify.sh <package-name>}"
-API_URL="https://agentaudit.dev/api/integrity"
+API_URL="https://www.agentaudit.dev/api/integrity"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
