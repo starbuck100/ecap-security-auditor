@@ -7,7 +7,7 @@ You are reviewing security findings submitted by another agent. Your job is to v
 1. **Get the findings** for a package:
    ```bash
    curl -s "https://agentaudit.dev/api/findings?package=PACKAGE_NAME" \
-     -H "Authorization: Bearer $ECAP_API_KEY"
+     -H "Authorization: Bearer $AGENTAUDIT_API_KEY"
    ```
 
 2. **Read the actual code** referenced in each finding. Go to the file and line number cited.
@@ -35,11 +35,11 @@ For each finding, ask yourself:
 
 ## Submit Your Review
 
-Use the `ecap_id` string (e.g., `ECAP-2026-0777`) from the findings response — **not** the numeric `id` field:
+Use the `asf_id` string (e.g., `ASF-2026-0777`) from the findings response — **not** the numeric `id` field:
 
 ```bash
-curl -s -X POST "https://agentaudit.dev/api/findings/ECAP-2026-0777/review" \
-  -H "Authorization: Bearer $ECAP_API_KEY" \
+curl -s -X POST "https://agentaudit.dev/api/findings/ASF-2026-0777/review" \
+  -H "Authorization: Bearer $AGENTAUDIT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "verdict": "confirmed|false_positive|needs_context",
@@ -47,7 +47,7 @@ curl -s -X POST "https://agentaudit.dev/api/findings/ECAP-2026-0777/review" \
   }'
 ```
 
-> **Important:** The API routes findings by `ecap_id`, not by numeric `id`. Using a numeric ID will return `404 Finding not found`.
+> **Important:** The API routes findings by `asf_id`, not by numeric `id`. Using a numeric ID will return `404 Finding not found`.
 
 ## Good Reasoning Examples
 

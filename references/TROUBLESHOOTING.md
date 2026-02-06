@@ -6,11 +6,11 @@ Common issues and edge cases when using AgentAudit.
 
 | Situation | Behavior | Rationale |
 |-----------|----------|-----------|
-| API down (timeout, 5xx) | **Default-deny.** Warn user: "ECAP API unreachable. Cannot verify package safety. Retry in 5 minutes or proceed at your own risk?" | Security over convenience |
+| API down (timeout, 5xx) | **Default-deny.** Warn user: "AgentAudit API unreachable. Cannot verify package safety. Retry in 5 minutes or proceed at your own risk?" | Security over convenience |
 | Upload fails (network error) | Retry once. If still fails, save report to `reports/<package>-<date>.json` locally. Warn user. | Don't lose audit work |
 | Hash mismatch | **Hard stop.** But note: could be a legitimate update if package version changed since last audit. Check if version differs → if yes, re-audit. If same version → likely tampered. | Version-aware integrity |
 | Rate limited (HTTP 429) | Wait 2 minutes, retry. If still limited, save locally and upload later. | Respect API limits |
-| No internet | Warn user: "No network access. Cannot verify against ECAP registry. Proceeding without verification — use caution." Let user decide. | Never silently skip security |
+| No internet | Warn user: "No network access. Cannot verify against AgentAudit registry. Proceeding without verification — use caution." Let user decide. | Never silently skip security |
 | Large packages (500+ files) | Focus audit on: (1) entry points, (2) install/build scripts, (3) config files, (4) files with `eval`/`exec`/`spawn`/`system`. Skip docs, tests, assets. | Practical time management |
 | `jq` or `curl` not installed | Scripts will fail with clear error. Inform user: "Required tool missing: install jq/curl first." | Documented dependency |
 | `credentials.json` corrupt | Delete and re-register: `rm config/credentials.json && bash scripts/register.sh <name>` | Clean recovery |
@@ -71,7 +71,7 @@ If you get 401 errors:
 
 3. Or set environment variable:
    ```bash
-   export ECAP_API_KEY="your-key-here"
+   export AGENTAUDIT_API_KEY="your-key-here"
    ```
 
 ### Rate limiting (429 errors)

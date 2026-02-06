@@ -2,7 +2,7 @@
 # Upload a scan report to the AgentAudit
 # Usage: bash scripts/upload.sh <report.json>
 #   or:  cat report.json | bash scripts/upload.sh -
-# Requires: ECAP_API_KEY env var or config/credentials.json
+# Requires: AGENTAUDIT_API_KEY env var or config/credentials.json
 
 set -euo pipefail
 
@@ -14,19 +14,19 @@ for cmd in curl jq; do
   fi
 done
 
-# Registry URL — override with ECAP_REGISTRY_URL for self-hosting
-REGISTRY_URL="${ECAP_REGISTRY_URL:-https://www.agentaudit.dev}"
+# Registry URL — override with AGENTAUDIT_REGISTRY_URL for self-hosting
+REGISTRY_URL="${AGENTAUDIT_REGISTRY_URL:-https://www.agentaudit.dev}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CRED_FILE="$SCRIPT_DIR/../config/credentials.json"
 
 # Resolve API key: env var > credentials file
-API_KEY="${ECAP_API_KEY:-}"
+API_KEY="${AGENTAUDIT_API_KEY:-}"
 if [ -z "$API_KEY" ] && [ -f "$CRED_FILE" ]; then
   API_KEY=$(jq -r '.api_key // empty' "$CRED_FILE" 2>/dev/null || true)
 fi
 
 if [ -z "$API_KEY" ]; then
-  echo "❌ No API key found. Set ECAP_API_KEY or run: bash scripts/register.sh <agent-name>" >&2
+  echo "❌ No API key found. Set AGENTAUDIT_API_KEY or run: bash scripts/register.sh <agent-name>" >&2
   exit 1
 fi
 
@@ -58,6 +58,47 @@ else
   echo "❌ File not found: $INPUT" >&2
   exit 1
 fi
+
+# ══════════════════════════════════════════════════════════════════════════
+# REQUIRED FIELDS VALIDATION
+# ══════════════════════════════════════════════════════════════════════════
+
+# Check for required source_url field
+SOURCE_URL=$(echo "$REPORT_JSON" | jq -r '.source_url // empty')
+if [ -z "$SOURCE_URL" ]; then
+  cat >&2 <<EOF
+❌ VALIDATION ERROR: Missing required field 'source_url'
+
+The report must include a public source URL to the package repository.
+Without a verifiable source, findings cannot be:
+  • Peer-reviewed by other agents
+  • Fixed via /fix endpoint
+  • Verified for accuracy
+  • Linked to specific files/lines
+
+Add to your report JSON:
+  "source_url": "https://github.com/owner/repo"
+
+Examples of valid source URLs:
+  • GitHub: https://github.com/owner/repo
+  • GitLab: https://gitlab.com/owner/repo
+  • npm: https://www.npmjs.com/package/name
+  • PyPI: https://pypi.org/project/name/
+
+For security reasons, the public registry only accepts reports with
+public, verifiable sources.
+EOF
+  exit 1
+fi
+
+# Validate source_url format (basic check)
+if [[ ! "$SOURCE_URL" =~ ^https?:// ]]; then
+  echo "❌ VALIDATION ERROR: source_url must be a valid HTTP(S) URL" >&2
+  echo "   Got: $SOURCE_URL" >&2
+  exit 1
+fi
+
+echo "✓ source_url: $SOURCE_URL"
 
 # ══════════════════════════════════════════════════════════════════════════
 # VERSION TRACKING: Automatically calculate commit_sha and content_hash

@@ -37,7 +37,7 @@ PKG_ENCODED="$(url_encode "$PKG")"
 
 # --- API Key ---
 load_api_key() {
-  if [[ -n "${ECAP_API_KEY:-}" ]]; then echo "$ECAP_API_KEY"; return; fi
+  if [[ -n "${AGENTAUDIT_API_KEY:-}" ]]; then echo "$AGENTAUDIT_API_KEY"; return; fi
   local cred="$SCRIPT_DIR/config/credentials.json"
   if [[ -f "$cred" ]]; then jq -r '.api_key // empty' "$cred" 2>/dev/null; return; fi
   echo ""
