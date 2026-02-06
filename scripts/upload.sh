@@ -101,7 +101,9 @@ fi
 echo "✓ source_url: $SOURCE_URL"
 
 # ══════════════════════════════════════════════════════════════════════════
-# VERSION TRACKING: Automatically calculate commit_sha and content_hash
+# VERSION TRACKING (OPTIONAL): Auto-calculate commit_sha and content_hash
+# Backend enrichment handles these if you don't provide them.
+# This script calculates them locally for faster processing.
 # ══════════════════════════════════════════════════════════════════════════
 
 # Check if report already has version fields
