@@ -18,8 +18,12 @@ reports/
 *-RESULTS*.md
 *-SPEC*.md
 *-backup.md
+*-backup-*
 *-PLAN*.md
 *-ANALYSIS*.md
+CHANGELOG.md
+IMPLEMENTATION_SUMMARY.md
+VALIDATION_REPORT.md
 
 # OS
 .DS_Store
