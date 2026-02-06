@@ -55,22 +55,33 @@ RESPONSE="$(curl "${CURL_ARGS[@]}" 2>/dev/null)" || {
 # --- Parse & Score ---
 TOTAL=$(echo "$RESPONSE" | jq '.total // 0')
 if [[ "$TOTAL" -eq 0 ]]; then
-  # UNKNOWN = No audit data. This is NOT a green light!
+  # UNKNOWN = No audit data yet. Opportunity to contribute!
   cat <<EOF
 {
   "gate": "unknown",
   "package": "${PKG}",
   "score": null,
   "total": 0,
-  "message": "⚠️ UNKNOWN PACKAGE - NO AUDIT DATA",
-  "warning": "Zero findings does NOT mean safe. It means NOBODY HAS CHECKED YET.",
-  "required_checks": [
+  "message": "🔍 Package not yet audited in registry",
+  "info": "This package hasn't been scanned yet. You can be the first to audit it and contribute to the community!",
+  "next_steps": {
+    "option_1": "Run a security audit now and submit findings to the registry",
+    "option_2": "Proceed with caution after manual verification",
+    "option_3": "Choose a different, already-audited package"
+  },
+  "how_to_audit": {
+    "step_1": "Read the audit prompt: cat $SCRIPT_DIR/prompts/audit-prompt.md",
+    "step_2": "Analyze the package source code against the security checklist",
+    "step_3": "Build a JSON report with findings (see SKILL.md for format)",
+    "step_4": "Submit: bash $SCRIPT_DIR/scripts/upload.sh report.json"
+  },
+  "risk_checks": [
     "Is this package < 30 days old? (higher risk)",
     "Does it have < 100 weekly downloads? (higher risk)",
     "Is the author new with no other packages? (higher risk)",
     "Is the name similar to a popular package (typosquat)?"
   ],
-  "recommendation": "DO NOT auto-install. Require explicit user confirmation OR run manual audit first.",
+  "recommendation": "Do NOT auto-install unaudited packages. Audit first, then proceed with informed decision.",
   "exit_code": 3
 }
 EOF

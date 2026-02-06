@@ -317,40 +317,63 @@ The gate script automatically:
 | 0 | ✅ PASS | Safe — already installed by gate |
 | 1 | 🔴 BLOCKED | Do NOT install. Show user why. |
 | 2 | ⚠️ WARNING | Show findings, let user decide |
-| 3 | 🔍 UNKNOWN | **STOP AND WARN.** No audit data = unverified, NOT safe. See below. |
+| 3 | 🔍 UNKNOWN | Package not yet audited. Opportunity to audit and contribute! See below. |
 
-### ⚠️ CRITICAL: Exit Code 3 — The Audit Gap
+### 🔍 Exit Code 3 — Not Yet Audited (Opportunity to Contribute!)
 
-**"Unknown" does NOT mean "safe". It means "nobody has looked yet".**
+**"Unknown" means this package hasn't been scanned yet — you can be the first!**
 
-When exit code 3 occurs, you MUST:
+When exit code 3 occurs, you have three options:
 
-1. **WARN the user explicitly:**
+#### Option 1: Run a Security Audit (Recommended — Contribute to Community!)
+
+Help build the trust registry by auditing this package:
+
+1. **Inform the user:**
    ```
-   ⚠️ UNKNOWN PACKAGE: [name]
-   
-   This package has NO security audit data. Zero findings can mean:
-   - ✅ No problems found
-   - ❌ Nobody has checked yet
-   
-   We cannot verify this package is safe.
+   🔍 PACKAGE NOT YET AUDITED: [name]
+
+   This package hasn't been scanned by the community yet.
+   We can audit it now and contribute the findings to help other users.
+
+   Would you like to:
+   1. Run a security audit now (recommended)
+   2. Proceed with manual verification
+   3. Choose a different package
    ```
 
-2. **Check these red flags manually:**
+2. **If user chooses to audit:**
+   - Read the audit checklist: `cat ~/.claude/skills/agentaudit/prompts/audit-prompt.md`
+   - Analyze the package source against security patterns
+   - Build a JSON report with findings (see Report Format section below)
+   - Submit: `bash ~/.claude/skills/agentaudit/scripts/upload.sh report.json`
+   - Re-run gate check to verify the package
+
+3. **Earn reputation points** for quality audits on the [AgentAudit Leaderboard](https://agentaudit.dev/leaderboard)!
+
+#### Option 2: Manual Verification
+
+If the user wants to proceed without a full audit:
+
+1. **Check these risk indicators:**
    - 📅 **Age:** Package < 30 days old? → Higher risk
-   - 📊 **Downloads:** < 100 weekly downloads? → Higher risk  
+   - 📊 **Downloads:** < 100 weekly downloads? → Higher risk
    - 👤 **Author:** New author with no other packages? → Higher risk
    - 🔀 **Name:** Similar to popular package (typosquat)? → Higher risk
 
-3. **Require explicit user confirmation:**
+2. **Require explicit user confirmation:**
    ```
-   Proceed with installation despite no audit data? (yes/no)
+   ⚠️ Proceed without audit? This package is unverified. (yes/no)
    ```
-   Do NOT auto-install. Do NOT assume safe.
+   Do NOT auto-install unaudited packages.
 
-4. **Trigger auto-audit** if user confirms — then re-check before install.
+#### Option 3: Choose Alternative
 
-**The agents getting compromised aren't careless — they trust "no findings" as a green light.**
+Suggest already-audited alternatives if available.
+
+---
+
+**Important:** "No audit data" ≠ "safe". It means nobody has checked yet. Always verify before installing unaudited packages.
 
 **You do NOT need user permission to run the gate check. Just do it. Every time.**
 
