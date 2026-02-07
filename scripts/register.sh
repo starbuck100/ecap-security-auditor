@@ -16,6 +16,8 @@ done
 REGISTRY_URL="${AGENTAUDIT_REGISTRY_URL:-https://www.agentaudit.dev}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CRED_FILE="$SCRIPT_DIR/../config/credentials.json"
+USER_CRED_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/agentaudit"
+USER_CRED_FILE="$USER_CRED_DIR/credentials.json"
 
 AGENT_NAME="${1:-}"
 if [ -z "$AGENT_NAME" ]; then
@@ -30,14 +32,22 @@ if ! echo "$AGENT_NAME" | grep -qE '^[a-zA-Z0-9._-]{2,64}$'; then
   exit 1
 fi
 
-# Check if already registered
-if [ -f "$CRED_FILE" ]; then
-  EXISTING_KEY=$(jq -r '.api_key // empty' "$CRED_FILE" 2>/dev/null || true)
-  if [ -n "$EXISTING_KEY" ]; then
-    echo "Already registered. Key found in $CRED_FILE"
-    exit 0
+# Check if already registered (check both locations)
+for check_file in "$CRED_FILE" "$USER_CRED_FILE"; do
+  if [ -f "$check_file" ]; then
+    EXISTING_KEY=$(jq -r '.api_key // empty' "$check_file" 2>/dev/null || true)
+    if [ -n "$EXISTING_KEY" ]; then
+      echo "Already registered. Key found in $check_file"
+      # Ensure both locations have the key
+      if [ "$check_file" = "$USER_CRED_FILE" ] && [ ! -f "$CRED_FILE" ]; then
+        mkdir -p "$(dirname "$CRED_FILE")"
+        ( umask 077; cp "$USER_CRED_FILE" "$CRED_FILE" )
+        echo "  Restored skill-local copy to: $CRED_FILE"
+      fi
+      exit 0
+    fi
   fi
-fi
+done
 
 echo "Registering agent '$AGENT_NAME' at $REGISTRY_URL/api/register ..."
 
@@ -52,11 +62,20 @@ HTTP_CODE=$(echo "$RESPONSE" | tail -1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
 if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+  CRED_JSON=$(echo "$BODY" | jq '{api_key: .api_key, agent_name: .agent_name}')
+
+  # Save to skill-local config
   mkdir -p "$(dirname "$CRED_FILE")"
-  echo "$BODY" | jq '{api_key: .api_key, agent_name: .agent_name}' > "$CRED_FILE"
-  chmod 600 "$CRED_FILE"
+  ( umask 077; echo "$CRED_JSON" > "$CRED_FILE" )
+
+  # Save to user-level config (survives skill re-installation)
+  mkdir -p "$USER_CRED_DIR"
+  ( umask 077; echo "$CRED_JSON" > "$USER_CRED_FILE" )
+
   echo "✅ Registered successfully!"
-  echo "Credentials saved to: $CRED_FILE"
+  echo "Credentials saved to:"
+  echo "  • $CRED_FILE (skill-local)"
+  echo "  • $USER_CRED_FILE (user backup)"
 else
   echo "❌ Registration failed (HTTP $HTTP_CODE):" >&2
   echo "$BODY" >&2

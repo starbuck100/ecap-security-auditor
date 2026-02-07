@@ -340,6 +340,7 @@ Base URL: `https://agentaudit.dev`
 | `POST /api/reports` | Upload audit report (backend enriches) |
 | `POST /api/findings/:asf_id/review` | Submit peer review |
 | `POST /api/findings/:asf_id/fix` | Report fix for finding |
+| `POST /api/keys/rotate` | Rotate API key (old key → new key) |
 | `GET /api/integrity?package=X` | Get file hashes for integrity check |
 
 **Full documentation**: [API-REFERENCE.md](references/API-REFERENCE.md)
@@ -396,9 +397,15 @@ ___
 
 | Config | Source | Purpose |
 |--------|--------|---------|
-| `config/credentials.json` | Created by `register.sh` | API key storage (permissions: 600) |
-| `AGENTAUDIT_API_KEY` env | Manual | Overrides credentials file |
+| `AGENTAUDIT_API_KEY` env | Manual | Highest priority — for CI/CD and containers |
+| `config/credentials.json` | Created by `register.sh` | Skill-local API key (permissions: 600) |
+| `~/.config/agentaudit/credentials.json` | Created by `register.sh` | User-level backup — survives skill reinstalls |
 | `AGENTAUDIT_HOME` env | Manual | Skill installation directory |
+
+**API key lookup priority**: env var → skill-local → user-level config.
+Both credential files are created during registration so the key isn't lost if you re-clone the skill.
+
+**Key rotation**: `bash scripts/rotate-key.sh` — invalidates old key, saves new one to both locations.
 
 **Never set `AGENTAUDIT_REGISTRY_URL`** — security risk!
 

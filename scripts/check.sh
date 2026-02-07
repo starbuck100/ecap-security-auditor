@@ -5,6 +5,7 @@
 set -euo pipefail
 
 API_URL="${AGENTAUDIT_REGISTRY_URL:-https://www.agentaudit.dev}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 for cmd in jq curl; do
   if ! command -v "$cmd" &>/dev/null; then
@@ -16,13 +17,22 @@ if [[ $# -lt 1 ]]; then
   echo "Usage: check.sh <package-name>" >&2; exit 1
 fi
 
+# Load API key (shared loader: env var > skill-local > user-level config)
+source "$SCRIPT_DIR/_load-key.sh"
+API_KEY="$(load_api_key)"
+
 PKG="$1"
-PKG_ENCODED="$(python3 -c "import urllib.parse; print(urllib.parse.quote('$PKG', safe=''))" 2>/dev/null || echo "$PKG")"
+PKG_ENCODED="$(python3 -c "import urllib.parse; print(urllib.parse.quote('$PKG', safe=''))" 2>/dev/null \
+  || printf '%s' "$PKG" | jq -sRr @uri 2>/dev/null \
+  || echo "$PKG")"
 
 echo "🔍 Checking '$PKG' against ${API_URL}..."
 echo ""
 
-RESPONSE="$(curl -sL -f --max-time 10 "${API_URL}/api/findings?package=${PKG_ENCODED}" 2>/dev/null)" || {
+CURL_ARGS=(-sL -f --max-time 10 "${API_URL}/api/findings?package=${PKG_ENCODED}")
+[[ -n "$API_KEY" ]] && CURL_ARGS+=(-H "Authorization: Bearer ${API_KEY}")
+
+RESPONSE="$(curl "${CURL_ARGS[@]}" 2>/dev/null)" || {
   echo "⚠️  Registry unreachable. Cannot verify package."
   echo "    Try again later or run a local LLM audit on the source."
   exit 2

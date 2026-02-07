@@ -17,13 +17,10 @@ done
 # Registry URL — override with AGENTAUDIT_REGISTRY_URL for self-hosting
 REGISTRY_URL="${AGENTAUDIT_REGISTRY_URL:-https://www.agentaudit.dev}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CRED_FILE="$SCRIPT_DIR/../config/credentials.json"
 
-# Resolve API key: env var > credentials file
-API_KEY="${AGENTAUDIT_API_KEY:-}"
-if [ -z "$API_KEY" ] && [ -f "$CRED_FILE" ]; then
-  API_KEY=$(jq -r '.api_key // empty' "$CRED_FILE" 2>/dev/null || true)
-fi
+# Load API key using shared loader (env var > skill-local > user-level config)
+source "$SCRIPT_DIR/_load-key.sh"
+API_KEY="$(load_api_key)"
 
 if [ -z "$API_KEY" ]; then
   echo "❌ No API key found. Set AGENTAUDIT_API_KEY or run: bash scripts/register.sh <agent-name>" >&2
@@ -175,7 +172,10 @@ if command -v sha256sum &>/dev/null; then
       # Get file path and existing file_hash
       FILE_PATH=$(echo "$REPORT_JSON" | jq -r ".findings[$i].file // .findings[$i].file_path // empty")
       EXISTING_FILE_HASH=$(echo "$REPORT_JSON" | jq -r ".findings[$i].file_hash // \"null\"")
-      
+
+      # Sanitize file path: strip ../ sequences and leading / to prevent path traversal
+      FILE_PATH=$(printf '%s' "$FILE_PATH" | sed 's|\.\./||g; s|^/||')
+
       # Only calculate if file exists and file_hash is missing
       if [ -n "$FILE_PATH" ] && [ "$EXISTING_FILE_HASH" = "null" ] && [ -f "$PACKAGE_DIR/$FILE_PATH" ]; then
         FILE_HASH=$(sha256sum "$PACKAGE_DIR/$FILE_PATH" 2>/dev/null | cut -d' ' -f1)

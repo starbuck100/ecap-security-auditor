@@ -84,15 +84,16 @@ done
 echo ""
 echo "Checked: ${CHECKED} files"
 
-# Check credentials.json permissions
-CRED_FILE="${ROOT_DIR}/config/credentials.json"
-if [ -f "$CRED_FILE" ]; then
-  PERMS=$(stat -c '%a' "$CRED_FILE" 2>/dev/null || stat -f '%Lp' "$CRED_FILE" 2>/dev/null)
-  if [ "$PERMS" != "600" ]; then
-    echo "⚠️  config/credentials.json has permissions ${PERMS}, fixing to 600"
-    chmod 600 "$CRED_FILE"
+# Check credentials.json permissions (both locations)
+for cred_path in "${ROOT_DIR}/config/credentials.json" "${XDG_CONFIG_HOME:-$HOME/.config}/agentaudit/credentials.json"; do
+  if [ -f "$cred_path" ]; then
+    PERMS=$(stat -c '%a' "$cred_path" 2>/dev/null || stat -f '%Lp' "$cred_path" 2>/dev/null)
+    if [ "$PERMS" != "600" ]; then
+      echo "⚠️  $cred_path has permissions ${PERMS}, fixing to 600"
+      chmod 600 "$cred_path"
+    fi
   fi
-fi
+done
 
 if [ "$MISMATCH" -eq 0 ]; then
   echo "✅ All files verified — integrity OK"

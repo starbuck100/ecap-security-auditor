@@ -31,17 +31,14 @@ fi
 url_encode() {
   local string="$1"
   python3 -c "import urllib.parse; print(urllib.parse.quote('$string', safe=''))" 2>/dev/null \
+    || printf '%s' "$string" | jq -sRr @uri 2>/dev/null \
     || printf '%s' "$string" | sed 's/@/%40/g; s/\//%2F/g; s/ /%20/g'
 }
 PKG_ENCODED="$(url_encode "$PKG")"
 
-# --- API Key ---
-load_api_key() {
-  if [[ -n "${AGENTAUDIT_API_KEY:-}" ]]; then echo "$AGENTAUDIT_API_KEY"; return; fi
-  local cred="$SCRIPT_DIR/config/credentials.json"
-  if [[ -f "$cred" ]]; then jq -r '.api_key // empty' "$cred" 2>/dev/null; return; fi
-  echo ""
-}
+# --- API Key (shared loader: env var > skill-local > user-level config) ---
+GATE_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$GATE_SCRIPT_DIR/_load-key.sh"
 API_KEY="$(load_api_key)"
 
 # --- Query API ---
