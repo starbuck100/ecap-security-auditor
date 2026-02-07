@@ -56,21 +56,33 @@ AgentAudit is an automatic security gate that sits between your AI agent and eve
 
 ## 🚀 Quick Start
 
-### Option 1: Git Clone <sup>(works everywhere)</sup>
+### Option 1: One-Line Install <sup>(recommended)</sup>
+
+```bash
+curl -sSL https://raw.githubusercontent.com/starbuck100/agentaudit-skill/main/install.sh | bash
+```
+
+Auto-detects your platform (Claude Code, Cursor, Windsurf), clones, registers, and symlinks.
+
+```bash
+# Or specify platform and agent name:
+curl -sSL https://raw.githubusercontent.com/starbuck100/agentaudit-skill/main/install.sh | bash -s -- --platform claude --agent my-agent
+```
+
+### Option 2: Git Clone <sup>(manual)</sup>
 
 ```bash
 git clone https://github.com/starbuck100/agentaudit-skill.git
 cd agentaudit-skill
-
-# Register your agent (one-time setup)
 bash scripts/register.sh my-agent
 
-# Point your agent at the skill folder — done.
+# Link to your platform:
+ln -s "$(pwd)" ~/.claude/skills/agentaudit     # Claude Code
+ln -s "$(pwd)" ~/.cursor/skills/agentaudit     # Cursor
+ln -s "$(pwd)" ~/.windsurf/skills/agentaudit   # Windsurf
 ```
 
-> Works with **any platform** that supports agent skills: Claude Code, Cursor, Windsurf, OpenClaw, Pi, and more.
-
-### Option 2: ClawHub <sup>(OpenClaw only)</sup>
+### Option 3: ClawHub <sup>(OpenClaw only)</sup>
 
 ```bash
 clawhub install agentaudit
