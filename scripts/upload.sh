@@ -203,21 +203,38 @@ fi
 
 echo "Uploading report to $REGISTRY_URL/api/reports ..."
 
-RESPONSE=$(echo "$REPORT_JSON" | curl -s --max-time 30 -w "\n%{http_code}" -X POST "$REGISTRY_URL/api/reports" \
+RESPONSE=$(echo "$REPORT_JSON" | curl -s --max-time 60 -w "\n%{http_code}" -X POST "$REGISTRY_URL/api/reports" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d @-)
+  -d @-) || CURL_EXIT=$?
 
+CURL_EXIT="${CURL_EXIT:-0}"
 HTTP_CODE=$(echo "$RESPONSE" | tail -1)
 BODY=$(echo "$RESPONSE" | sed '$d')
+
+if [ "$CURL_EXIT" -eq 28 ]; then
+  echo "❌ Upload timed out (60s). The server may be processing a large repository." >&2
+  echo "   The report may still have been accepted — check the registry or retry." >&2
+  echo "   Tip: Provide a specific subdirectory URL (e.g., github.com/org/repo/tree/main/pkg/foo)" >&2
+  exit 28
+fi
 
 if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
   REPORT_ID=$(echo "$BODY" | jq -r '.report_id // "unknown"')
   FINDINGS=$(echo "$BODY" | jq -r '.findings_created | length // 0')
+  ENRICHMENT=$(echo "$BODY" | jq -r '.enrichment_status // "unknown"')
   echo "✅ Report uploaded successfully!"
   echo "Report ID: $REPORT_ID"
   echo "Findings created: $FINDINGS"
+  if [ "$ENRICHMENT" = "pending" ]; then
+    echo "ℹ️  Enrichment running in background (PURL, SWHID, version info computed async)"
+  fi
   echo "$BODY" | jq .
+elif [ "$HTTP_CODE" = "401" ]; then
+  echo "❌ Authentication failed (HTTP 401). Your API key may be invalid or expired." >&2
+  echo "   Re-register: bash scripts/register.sh <agent-name>" >&2
+  echo "   Or rotate key: bash scripts/rotate-key.sh" >&2
+  exit 1
 else
   echo "❌ Upload failed (HTTP $HTTP_CODE):" >&2
   echo "$BODY" >&2

@@ -33,18 +33,32 @@ if ! echo "$AGENT_NAME" | grep -qE '^[a-zA-Z0-9._-]{2,64}$'; then
 fi
 
 # Check if already registered (check both locations)
+# IMPORTANT: Validate the key against the server, not just file existence.
+# Keys can become stale if the DB is reset or the key was from a different environment.
 for check_file in "$CRED_FILE" "$USER_CRED_FILE"; do
   if [ -f "$check_file" ]; then
     EXISTING_KEY=$(jq -r '.api_key // empty' "$check_file" 2>/dev/null || true)
     if [ -n "$EXISTING_KEY" ]; then
-      echo "Already registered. Key found in $check_file"
-      # Ensure both locations have the key
-      if [ "$check_file" = "$USER_CRED_FILE" ] && [ ! -f "$CRED_FILE" ]; then
-        mkdir -p "$(dirname "$CRED_FILE")"
-        ( umask 077; cp "$USER_CRED_FILE" "$CRED_FILE" )
-        echo "  Restored skill-local copy to: $CRED_FILE"
+      # Validate key against server (quick check)
+      VALIDATE_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
+        -H "Authorization: Bearer $EXISTING_KEY" \
+        "$REGISTRY_URL/api/auth/validate" 2>/dev/null || echo "000")
+
+      if [ "$VALIDATE_HTTP" = "200" ]; then
+        echo "Already registered. Key validated against server."
+        echo "  Key found in $check_file"
+        # Ensure both locations have the key
+        if [ "$check_file" = "$USER_CRED_FILE" ] && [ ! -f "$CRED_FILE" ]; then
+          mkdir -p "$(dirname "$CRED_FILE")"
+          ( umask 077; cp "$USER_CRED_FILE" "$CRED_FILE" )
+          echo "  Restored skill-local copy to: $CRED_FILE"
+        fi
+        exit 0
+      else
+        echo "⚠️  Cached key in $check_file is stale (server returned $VALIDATE_HTTP). Re-registering..."
+        rm -f "$CRED_FILE" "$USER_CRED_FILE"
+        break
       fi
-      exit 0
     fi
   fi
 done

@@ -121,7 +121,7 @@ Query agentaudit.dev/api
 
 | Code | Meaning | Action |
 |------|---------|--------|
-| 0 | ✅ PASS | Safe — proceed with installation |
+| 0 | ✅ PASS | Safe — user may proceed with their install command |
 | 1 | 🔴 BLOCKED | Do NOT install. Show user why. |
 | 2 | ⚠️ WARNING | Show findings, let user decide |
 | 3 | 🔍 UNKNOWN | Not yet audited. **Opportunity to audit and contribute!** |
@@ -130,7 +130,7 @@ Query agentaudit.dev/api
 
 | Trust Score | Action | Behavior |
 |-------------|--------|----------|
-| ≥ 70 | ✅ PASS | Proceed with installation |
+| ≥ 70 | ✅ PASS | User may proceed with their install command |
 | 40–69 | ⚠️ WARN | **Pause and ask user**. Show findings summary. User decides. |
 | < 40 | 🔴 BLOCK | **Refuse to install**. Explain findings. Suggest alternatives. |
 | No data | 🔍 AUDIT | Run security audit first, then apply same logic |
@@ -210,10 +210,12 @@ The gate script automatically:
 1. Queries AgentAudit registry for known vulnerabilities
 2. Verifies file integrity via hash comparison
 3. Calculates Trust Score from findings
-4. Installs only if safe (Score ≥ 70)
+4. Returns PASS if safe (Score ≥ 70) — agent may proceed with user's install
 5. Warns on medium risk (Score 40-69)
 6. Blocks dangerous packages (Score < 40)
 7. Flags unknown packages for auto-audit
+
+**Note**: The gate script only CHECKS — it never installs or executes anything.
 
 ### When to Trigger
 
@@ -225,16 +227,21 @@ Run gate check automatically before:
 
 ### Package Source for Auto-Audit
 
-⚠️ **The audit must run BEFORE installation**. Get source without executing install scripts:
+⚠️ **CRITICAL: NEVER install or execute the package you are auditing.**
+Only DOWNLOAD source code for static analysis. Use these safe download methods:
 
-| Type | How to get source safely |
+| Type | Safe download command (NO install) |
 |------|--------------------------|
 | npm | `npm pack <name> && tar xzf *.tgz -C /tmp/audit-target/` |
 | pip | `pip download <name> --no-deps -d /tmp/ && tar xzf *.tar.gz -C /tmp/` |
 | GitHub | `git clone --depth 1 <repo-url> /tmp/audit-target/` |
-| MCP server | Clone from source repo |
+| MCP server | `git clone --depth 1 <repo-url> /tmp/audit-target/` |
 
-**Why not just install?** Install scripts can execute arbitrary code — that's what we're auditing.
+**Why download-only?**
+- `npm install` / `pip install` execute install scripts — that's arbitrary code execution
+- You're auditing the code for safety; running it defeats the purpose
+- `npm pack` and `pip download --no-deps` only download the tarball without executing anything
+- After auditing, the USER decides whether to install based on your findings
 
 ___
 
