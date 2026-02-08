@@ -17,8 +17,9 @@ if [[ $# -lt 1 ]]; then
   echo "Usage: check.sh <package-name>" >&2; exit 1
 fi
 
-# Load API key (shared loader: env var > skill-local > user-level config)
+# Load shared helpers
 source "$SCRIPT_DIR/_load-key.sh"
+source "$SCRIPT_DIR/_curl-retry.sh"
 API_KEY="$(load_api_key)"
 
 PKG="$1"
@@ -33,7 +34,7 @@ echo ""
 CHECK_ARGS=(-sL -f --max-time 10 "${API_URL}/api/check?package=${PKG_ENCODED}")
 [[ -n "$API_KEY" ]] && CHECK_ARGS+=(-H "Authorization: Bearer ${API_KEY}")
 
-CHECK_RESPONSE="$(curl "${CHECK_ARGS[@]}" 2>/dev/null)" || {
+CHECK_RESPONSE="$(curl_retry "${CHECK_ARGS[@]}")" || {
   echo "⚠️  Registry unreachable. Cannot verify package."
   echo "    Try again later or run a local LLM audit on the source."
   exit 2
@@ -55,22 +56,24 @@ API_SCORE=$(echo "$CHECK_RESPONSE" | jq '.trust_score // empty')
 FIND_ARGS=(-sL -f --max-time 10 "${API_URL}/api/findings?package=${PKG_ENCODED}")
 [[ -n "$API_KEY" ]] && FIND_ARGS+=(-H "Authorization: Bearer ${API_KEY}")
 
-RESPONSE="$(curl "${FIND_ARGS[@]}" 2>/dev/null)" || RESPONSE='{"findings":[],"total":0}'
+RESPONSE="$(curl_retry "${FIND_ARGS[@]}")" || RESPONSE='{"findings":[],"total":0}'
 
-# Use API trust_score; fall back to local calculation only if the API didn't return one.
-# NOTE: The local fallback may differ from the registry score because the registry
-# applies additional adjustments (e.g. by_design exclusion, score_impact weighting)
-# that are not fully replicated here.
+# Use API trust_score (authoritative). Fallback to local calculation only if
+# /api/check returned exists:true but no trust_score (unexpected edge case).
 if [[ -n "$API_SCORE" ]]; then
   SCORE="$API_SCORE"
 else
+  echo "⚠️  API did not return trust_score — using local approximation" >&2
   SCORE=$(echo "$RESPONSE" | jq '
     [.findings // [] | .[] | select(.by_design != true and .by_design != "true") |
+      .component_type as $ct |
       (if .severity == "critical" then -25
       elif .severity == "high" then -15
       elif .severity == "medium" then -8
       elif .severity == "low" then -3
-      else 0 end)
+      else 0 end) |
+      if $ct == "hook" or $ct == "mcp" or $ct == "settings" or $ct == "plugin" then . * 12 / 10
+      else . end
     ] | 100 + add | round
   ')
 fi

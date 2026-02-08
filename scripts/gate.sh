@@ -39,12 +39,13 @@ PKG_ENCODED="$(url_encode "$PKG")"
 # --- API Key (shared loader: env var > skill-local > user-level config) ---
 GATE_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$GATE_SCRIPT_DIR/_load-key.sh"
+source "$GATE_SCRIPT_DIR/_curl-retry.sh"
 API_KEY="$(load_api_key)"
 
-# --- Query API ---
+# --- Query API (with retry for transient failures) ---
 CURL_ARGS=(-sL -f --max-time 15 "${API_URL}/api/findings?package=${PKG_ENCODED}")
 [[ -n "$API_KEY" ]] && CURL_ARGS+=(-H "Authorization: Bearer ${API_KEY}")
-RESPONSE="$(curl "${CURL_ARGS[@]}" 2>/dev/null)" || {
+RESPONSE="$(curl_retry "${CURL_ARGS[@]}")" || {
   echo "{\"gate\":\"warn\",\"package\":\"${PKG}\",\"score\":null,\"message\":\"⚠️ Registry unreachable (timeout or down). Proceeding in WARN mode — package is UNVERIFIED. Consider running a local audit or waiting until the registry is back.\",\"exit_code\":2}"
   exit 2
 }

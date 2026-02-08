@@ -9,6 +9,9 @@ API_URL="https://www.agentaudit.dev/api/integrity"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Load retry helper
+source "$SCRIPT_DIR/_curl-retry.sh"
+
 # Detect sha256 command
 if command -v sha256sum &>/dev/null; then
   SHA_CMD="sha256sum"
@@ -22,7 +25,7 @@ fi
 ENCODED_PACKAGE=$(printf '%s' "$PACKAGE" | jq -sRr @uri)
 
 echo "🔍 Fetching official hashes from registry..."
-HTTP_RESPONSE=$(curl -sL --max-time 15 -w "\n%{http_code}" "${API_URL}?package=${ENCODED_PACKAGE}")
+HTTP_RESPONSE=$(curl_retry -sL --max-time 15 -w "\n%{http_code}" "${API_URL}?package=${ENCODED_PACKAGE}")
 HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -1)
 RESPONSE=$(echo "$HTTP_RESPONSE" | sed '$d')
 
