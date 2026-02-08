@@ -119,12 +119,37 @@ Query agentaudit.dev/api
 
 ### Exit Codes
 
+**gate.sh** (security gate — primary script):
+
 | Code | Meaning | Action |
 |------|---------|--------|
-| 0 | ✅ PASS | Safe — user may proceed with their install command |
-| 1 | 🔴 BLOCKED | Do NOT install. Show user why. |
-| 2 | ⚠️ WARNING | Show findings, let user decide |
-| 3 | 🔍 UNKNOWN | Not yet audited. **Opportunity to audit and contribute!** |
+| 0 | PASS | Safe to install (score >= 70) |
+| 1 | BLOCK | Do NOT install (score < 40). Show user why. |
+| 2 | WARN | Review findings (score 40-69) OR registry unreachable |
+| 3 | UNKNOWN | Not yet audited. Opportunity to audit and contribute. |
+
+**check.sh** (manual lookup — informational):
+
+| Code | Meaning |
+|------|---------|
+| 0 | Lookup completed (result printed to stdout) |
+| 1 | Missing dependency (curl/jq) |
+| 2 | Registry unreachable |
+
+**upload.sh** (report submission):
+
+| Code | Meaning |
+|------|---------|
+| 0 | Upload successful |
+| 1 | Validation error, auth failure, or upload error |
+| 28 | Curl timeout (server may still have accepted) |
+
+**verify.sh** (file integrity check):
+
+| Code | Meaning |
+|------|---------|
+| 0 | All files match registry hashes |
+| 1 | Hash mismatch or API error |
 
 ### Decision Table
 

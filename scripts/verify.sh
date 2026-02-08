@@ -54,7 +54,18 @@ echo "Verified: $(echo "$RESPONSE" | jq -r '.verified_at')"
 echo ""
 
 for file in "${FILES[@]}"; do
+  # Sanitize: reject path traversal and absolute paths from API
+  if [[ "$file" == /* ]] || [[ "$file" == *..* ]] || [[ "$file" == *$'\n'* ]] || [[ "$file" == *$'\0'* ]]; then
+    echo "⚠️  ${file} — REJECTED (path traversal or absolute path)" >&2
+    continue
+  fi
   LOCAL_PATH="${ROOT_DIR}/${file}"
+  # Resolve symlinks and verify path stays within ROOT_DIR
+  REAL_PATH=$(realpath -m "$LOCAL_PATH" 2>/dev/null || echo "$LOCAL_PATH")
+  if [[ "$REAL_PATH" != "${ROOT_DIR}"/* ]]; then
+    echo "⚠️  ${file} — REJECTED (resolves outside project root)" >&2
+    continue
+  fi
   REMOTE_HASH=$(echo "$RESPONSE" | jq -r ".files[\"${file}\"].sha256 // empty")
 
   if [ -z "$REMOTE_HASH" ] || [ "$REMOTE_HASH" = "null" ]; then
