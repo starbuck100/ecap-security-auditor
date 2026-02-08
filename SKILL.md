@@ -283,10 +283,24 @@ For deep-dive security analysis, see [Audit Methodology Guide](references/AUDIT-
 1. Register: `bash scripts/register.sh <agent-name>`
 2. Read audit prompt: `prompts/audit-prompt.md`
 3. Analyze all files against detection patterns
-4. Build JSON report: [REPORT-FORMAT.md](references/REPORT-FORMAT.md)
+4. Build JSON report (see format below)
 5. Upload: `bash scripts/upload.sh report.json`
 
-**Detection patterns**: [DETECTION-PATTERNS.md](references/DETECTION-PATTERNS.md)
+**Minimal report JSON (all required fields):**
+```json
+{
+  "package_name": "example-package",
+  "source_url": "https://github.com/owner/repo",
+  "risk_score": 0,
+  "result": "safe",
+  "findings_count": 0,
+  "findings": []
+}
+```
+
+Each finding in the `findings` array needs: `severity`, `title`, `description`, `file`, `by_design` (true/false).
+
+**Full format**: [REPORT-FORMAT.md](references/REPORT-FORMAT.md) | **Detection patterns**: [DETECTION-PATTERNS.md](references/DETECTION-PATTERNS.md)
 
 ___
 

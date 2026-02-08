@@ -97,6 +97,44 @@ fi
 
 echo "✓ source_url: $SOURCE_URL"
 
+# Check remaining required fields: skill_slug/package_name, risk_score, result, findings_count
+PKG_NAME=$(echo "$REPORT_JSON" | jq -r '.skill_slug // .package_name // empty')
+if [ -z "$PKG_NAME" ]; then
+  echo "❌ VALIDATION ERROR: Missing 'skill_slug' or 'package_name' field." >&2
+  echo "   Add: \"package_name\": \"your-package-name\"" >&2
+  exit 1
+fi
+echo "✓ package: $PKG_NAME"
+
+RISK_SCORE=$(echo "$REPORT_JSON" | jq -r '.risk_score // empty')
+if [ -z "$RISK_SCORE" ]; then
+  echo "❌ VALIDATION ERROR: Missing 'risk_score' field (integer 0-100)." >&2
+  exit 1
+fi
+
+RESULT=$(echo "$REPORT_JSON" | jq -r '.result // empty')
+if [ -z "$RESULT" ]; then
+  echo "❌ VALIDATION ERROR: Missing 'result' field (safe|caution|unsafe)." >&2
+  exit 1
+fi
+
+# Auto-fix findings_count if missing (common agent mistake)
+EXISTING_FC=$(echo "$REPORT_JSON" | jq -r '.findings_count // empty')
+ACTUAL_FC=$(echo "$REPORT_JSON" | jq '.findings | length')
+if [ -z "$EXISTING_FC" ]; then
+  echo "⚠️  Missing 'findings_count' — auto-setting to $ACTUAL_FC"
+  REPORT_JSON=$(echo "$REPORT_JSON" | jq --argjson fc "$ACTUAL_FC" '. + {findings_count: $fc}')
+elif [ "$EXISTING_FC" != "$ACTUAL_FC" ]; then
+  echo "⚠️  findings_count ($EXISTING_FC) doesn't match findings array ($ACTUAL_FC) — correcting"
+  REPORT_JSON=$(echo "$REPORT_JSON" | jq --argjson fc "$ACTUAL_FC" '.findings_count = $fc')
+fi
+
+# Ensure skill_slug is set (API requires it; package_name is an alias)
+HAS_SLUG=$(echo "$REPORT_JSON" | jq -r '.skill_slug // empty')
+if [ -z "$HAS_SLUG" ]; then
+  REPORT_JSON=$(echo "$REPORT_JSON" | jq --arg s "$PKG_NAME" '. + {skill_slug: $s}')
+fi
+
 # ══════════════════════════════════════════════════════════════════════════
 # VERSION TRACKING (OPTIONAL): Auto-calculate commit_sha and content_hash
 # Backend enrichment handles these if you don't provide them.
