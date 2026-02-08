@@ -1,27 +1,26 @@
 #!/usr/bin/env bash
-# AgentAudit Skill — One-Line Installer
+# AgentAudit — Installer
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/starbuck100/agentaudit-skill/main/install.sh | bash
 #
-# Or with a specific platform:
-#   curl -sSL https://raw.githubusercontent.com/starbuck100/agentaudit-skill/main/install.sh | bash -s -- --platform claude
+# Options:
+#   --agent <name>   Set your agent name (default: auto-generated)
 #
-# Platforms: claude, cursor, windsurf, copilot, openclaw
+# Works with: Claude Code, Cursor, Windsurf, Cline, and any terminal.
 
 set -euo pipefail
 
-# Colors (disabled if not a terminal)
+# ── Colors ──
 if [ -t 1 ]; then
-  GREEN='\033[0;32m'; YELLOW='\033[0;33m'; RED='\033[0;31m'; BLUE='\033[0;34m'; NC='\033[0m'
+  G='\033[0;32m'; Y='\033[0;33m'; R='\033[0;31m'; B='\033[0;34m'; D='\033[2m'; N='\033[0m'; BOLD='\033[1m'
 else
-  GREEN=''; YELLOW=''; RED=''; BLUE=''; NC=''
+  G=''; Y=''; R=''; B=''; D=''; N=''; BOLD=''
 fi
-
-info()  { echo -e "${BLUE}ℹ${NC}  $*"; }
-ok()    { echo -e "${GREEN}✅${NC} $*"; }
-warn()  { echo -e "${YELLOW}⚠️${NC}  $*" >&2; }
-fail()  { echo -e "${RED}❌${NC} $*" >&2; exit 1; }
+ok()   { echo -e "${G}✓${N} $*"; }
+info() { echo -e "${B}→${N} $*"; }
+warn() { echo -e "${Y}!${N} $*" >&2; }
+fail() { echo -e "${R}✗${N} $*" >&2; exit 1; }
 
 # ── Dependencies ──
 for cmd in git curl jq; do
@@ -29,91 +28,39 @@ for cmd in git curl jq; do
 done
 
 # ── Parse args ──
-PLATFORM=""
 AGENT_NAME=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --platform|-p) PLATFORM="$2"; shift 2 ;;
-    --agent|-a)    AGENT_NAME="$2"; shift 2 ;;
+    --agent|-a) AGENT_NAME="$2"; shift 2 ;;
     --help|-h)
-      echo "Usage: install.sh [--platform <claude|cursor|windsurf|copilot|openclaw>] [--agent <name>]"
+      echo "Usage: install.sh [--agent <name>]"
+      echo "Downloads AgentAudit and registers your agent."
       exit 0 ;;
     *) shift ;;
   esac
 done
 
-# ── Detect platform if not specified ──
-if [ -z "$PLATFORM" ]; then
-  if [ -d "$HOME/.claude" ]; then
-    PLATFORM="claude"
-  elif [ -d "$HOME/.cursor" ]; then
-    PLATFORM="cursor"
-  elif [ -d "$HOME/.windsurf" ]; then
-    PLATFORM="windsurf"
-  else
-    PLATFORM="claude"  # Default
-  fi
-  info "Auto-detected platform: $PLATFORM"
-fi
-
-# ── Determine install directory ──
-case "$PLATFORM" in
-  claude)   SKILLS_DIR="$HOME/.claude/skills" ;;
-  cursor)   SKILLS_DIR="$HOME/.cursor/skills" ;;
-  windsurf) SKILLS_DIR="$HOME/.windsurf/skills" ;;
-  copilot)  SKILLS_DIR=".github/skills" ;;
-  openclaw)
-    if command -v clawhub &>/dev/null; then
-      info "Installing via ClawHub..."
-      clawhub install agentaudit
-      ok "Installed via ClawHub."
-      exit 0
-    else
-      fail "ClawHub not found. Install OpenClaw first or use --platform claude"
-    fi ;;
-  *) fail "Unknown platform: $PLATFORM. Use: claude, cursor, windsurf, copilot, openclaw" ;;
-esac
-
-INSTALL_DIR="$SKILLS_DIR/agentaudit"
-
-# ── Check if already installed ──
-if [ -d "$INSTALL_DIR" ] || [ -L "$INSTALL_DIR" ]; then
-  warn "AgentAudit already installed at $INSTALL_DIR"
-  echo "  To update: cd $INSTALL_DIR && git pull"
-  echo "  To reinstall: rm -rf $INSTALL_DIR && re-run this script"
-  exit 0
-fi
-
-# ── Clone ──
-info "Cloning agentaudit-skill..."
+# ── Clone / Update ──
 CLONE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/agentaudit-skill"
-mkdir -p "$(dirname "$CLONE_DIR")"
 
-if [ -d "$CLONE_DIR" ]; then
-  info "Updating existing clone..."
-  git -C "$CLONE_DIR" pull --quiet
+echo ""
+info "Installing AgentAudit..."
+echo ""
+
+if [ -d "$CLONE_DIR/.git" ]; then
+  info "Updating existing installation..."
+  git -C "$CLONE_DIR" pull --quiet 2>/dev/null || warn "git pull failed — using existing version"
+  ok "Updated: $CLONE_DIR"
 else
-  git clone --depth 1 https://github.com/starbuck100/agentaudit-skill.git "$CLONE_DIR"
-fi
-ok "Cloned to $CLONE_DIR"
-
-# ── Symlink ──
-mkdir -p "$SKILLS_DIR"
-ln -sf "$CLONE_DIR" "$INSTALL_DIR"
-ok "Linked to $INSTALL_DIR"
-
-# ── Verify integrity ──
-info "Verifying skill integrity..."
-if bash "$CLONE_DIR/scripts/verify.sh" agentaudit 2>/dev/null; then
-  ok "Integrity verified"
-else
-  warn "Integrity check failed or registry unreachable — verify manually later"
+  mkdir -p "$(dirname "$CLONE_DIR")"
+  git clone --depth 1 https://github.com/starbuck100/agentaudit-skill.git "$CLONE_DIR" 2>/dev/null \
+    || fail "Could not clone repository. Check your internet connection."
+  ok "Downloaded to: $CLONE_DIR"
 fi
 
 # ── Register agent ──
 if [ -z "$AGENT_NAME" ]; then
-  # Generate default name from hostname + platform
-  AGENT_NAME="${PLATFORM}-$(hostname -s 2>/dev/null || echo 'agent')"
+  AGENT_NAME="agent-$(hostname -s 2>/dev/null || echo 'local')"
   AGENT_NAME=$(echo "$AGENT_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g' | head -c 64)
 fi
 
@@ -124,25 +71,95 @@ if [ -f "$CRED_FILE" ] || [ -f "$USER_CRED" ]; then
   ok "Already registered (credentials found)"
 else
   info "Registering agent '$AGENT_NAME'..."
-  if bash "$CLONE_DIR/scripts/register.sh" "$AGENT_NAME"; then
-    ok "Registered as '$AGENT_NAME'"
+  if bash "$CLONE_DIR/scripts/register.sh" "$AGENT_NAME" >/dev/null 2>&1; then
+    ok "Registered as: $AGENT_NAME"
   else
-    warn "Registration failed — register manually: bash $CLONE_DIR/scripts/register.sh your-name"
+    warn "Auto-registration failed. Register manually later:"
+    echo "    bash $CLONE_DIR/scripts/register.sh your-agent-name"
   fi
 fi
 
-# ── Done ──
+# ── Claude Code: Auto-integrate ──
+CLAUDE_INTEGRATED=false
+if [ -d "$HOME/.claude" ]; then
+  SKILLS_DIR="$HOME/.claude/skills"
+  INSTALL_DIR="$SKILLS_DIR/agentaudit"
+  mkdir -p "$SKILLS_DIR"
+  ln -sf "$CLONE_DIR" "$INSTALL_DIR"
+  ok "Claude Code: Linked to $INSTALL_DIR"
+  CLAUDE_INTEGRATED=true
+fi
+
+# ── Quick test ──
+info "Testing connection..."
+if bash "$CLONE_DIR/scripts/check.sh" chalk >/dev/null 2>&1; then
+  ok "Registry connection works"
+else
+  warn "Could not reach registry — check your network"
+fi
+
+# ══════════════════════════════════════════════════════════════
+# SUCCESS — Show platform-specific next steps
+# ══════════════════════════════════════════════════════════════
+
+SCRIPTS="$CLONE_DIR/scripts"
+
 echo ""
-echo -e "${GREEN}════════════════════════════════════════${NC}"
-echo -e "${GREEN}  AgentAudit installed successfully!${NC}"
-echo -e "${GREEN}════════════════════════════════════════${NC}"
+echo -e "${G}${BOLD}════════════════════════════════════════════${N}"
+echo -e "${G}${BOLD}  AgentAudit installed successfully${N}"
+echo -e "${G}${BOLD}════════════════════════════════════════════${N}"
 echo ""
-echo "  Platform:  $PLATFORM"
-echo "  Location:  $INSTALL_DIR → $CLONE_DIR"
-echo "  Agent:     $AGENT_NAME"
+echo -e "  Location: ${BOLD}$CLONE_DIR${N}"
+echo -e "  Scripts:  ${BOLD}$SCRIPTS${N}"
 echo ""
-echo "  Test it:"
-echo "    bash $INSTALL_DIR/scripts/check.sh lodash"
+echo -e "  ${BOLD}Quick test:${N}"
+echo "    bash $SCRIPTS/check.sh lodash"
 echo ""
-echo "  Restart your agent ($PLATFORM) to activate the security gate."
+
+# ── Platform-specific setup instructions ──
+
+if [ "$CLAUDE_INTEGRATED" = true ]; then
+  echo -e "  ${G}${BOLD}Claude Code — Ready to use!${N}"
+  echo "  The skill is active. Restart Claude Code to load it."
+  echo "  Your agent will automatically use the security gate."
+  echo ""
+fi
+
+# Always show the other platforms (user might use multiple)
+echo -e "${D}────────────────────────────────────────────${N}"
+echo -e "  ${BOLD}Setup for other platforms:${N}"
+echo ""
+
+if [ "$CLAUDE_INTEGRATED" != true ]; then
+  echo -e "  ${BOLD}Claude Code${N}"
+  echo "    mkdir -p ~/.claude/skills"
+  echo "    ln -sf $CLONE_DIR ~/.claude/skills/agentaudit"
+  echo "    # Restart Claude Code"
+  echo ""
+fi
+
+cat <<EOF
+  ${BOLD}Cursor${N}
+    1. Open Cursor Settings > Rules > User Rules
+    2. Add this line:
+       When installing packages, first run: bash $SCRIPTS/gate.sh npm <package>
+       For auditing, follow: $CLONE_DIR/SKILL.md
+
+  ${BOLD}Windsurf${N}
+    1. Open Windsurf Settings > Rules
+    2. Add the same instruction as Cursor above.
+
+  ${BOLD}Cline${N}
+    1. Open Cline settings > Custom Instructions
+    2. Paste the contents of: $CLONE_DIR/SKILL.md
+
+  ${BOLD}Any terminal (manual)${N}
+    bash $SCRIPTS/gate.sh npm <package>     # Check before install
+    bash $SCRIPTS/check.sh <package>        # Lookup trust score
+    bash $SCRIPTS/upload.sh report.json     # Submit audit report
+EOF
+echo ""
+echo -e "${D}────────────────────────────────────────────${N}"
+echo -e "  Docs: $CLONE_DIR/README.md"
+echo -e "  Help: https://www.agentaudit.dev"
 echo ""
