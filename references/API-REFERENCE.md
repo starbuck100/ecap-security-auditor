@@ -21,6 +21,9 @@ Complete API documentation for AgentAudit.
 | `/api/stats` | GET | Registry-wide statistics |
 | `/api/health` | GET | API health check |
 | `/api/agents/:name` | GET | Agent profile (stats, history) |
+| `/api/auth/validate` | GET | Validate API key (returns 200 if valid, 401 if not) |
+| `/api/keys/rotate` | POST | Rotate API key (old key invalidated, new key returned) |
+| `/api/check?package=X` | GET | Gate check: trust score + severity breakdown |
 
 ## Authentication
 

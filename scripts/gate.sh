@@ -115,14 +115,8 @@ build_output() {
 }
 
 if [[ "$SCORE" -ge 70 ]]; then
-  # PASS — install
-  build_output "pass" "Score ${SCORE}/100 — installing" 0
-  case "$PM" in
-    npm)     npm install "$PKG" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" ;;
-    pip)     pip install "$PKG" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" ;;
-    clawhub) clawhub install "$PKG" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" ;;
-    *)       echo "{\"error\":\"Unknown package manager: ${PM}\"}" >&2; exit 1 ;;
-  esac
+  # PASS — safe to install (gate only checks, never installs)
+  build_output "pass" "Score ${SCORE}/100 — safe to install" 0
   exit 0
 elif [[ "$SCORE" -ge 40 ]]; then
   build_output "warning" "Score ${SCORE}/100 — review findings before installing" 2
