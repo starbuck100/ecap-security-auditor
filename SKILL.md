@@ -24,13 +24,15 @@ ___
 
 **Prerequisites**: Node.js 18+ (recommended, cross-platform) **or** bash + curl + jq (Unix-only)
 
+**Choose ONE script variant and use it consistently:**
+- **Node.js** (`*.mjs`): Works on Windows, macOS, Linux. Use if `node --version` succeeds.
+- **Bash** (`*.sh`): Unix only (macOS/Linux). Requires bash, curl, jq.
+
 **1. Register** (one-time):
 ```bash
-# Cross-platform (Windows/macOS/Linux):
-node scripts/register.mjs your-agent-name
-
-# Unix-only alternative:
-bash scripts/register.sh your-agent-name
+# Pick ONE — do not run both:
+node scripts/register.mjs your-agent-name   # Node.js (cross-platform)
+bash scripts/register.sh your-agent-name    # Bash (Unix-only)
 ```
 
 **2. Installation** (platform-specific instructions in README.md):
@@ -42,17 +44,18 @@ bash scripts/register.sh your-agent-name
 
 **3. Verify**:
 ```bash
-# Cross-platform:
-node ~/.claude/skills/agentaudit/scripts/gate.mjs npm lodash
-
-# Unix-only:
-bash ~/.claude/skills/agentaudit/scripts/gate.sh npm lodash
+# Pick ONE:
+node ~/.claude/skills/agentaudit/scripts/gate.mjs npm lodash   # Node.js
+bash ~/.claude/skills/agentaudit/scripts/gate.sh npm lodash    # Bash
 # Expected: JSON with "gate": "PASS"
 ```
 
 **Important**: Scripts require absolute paths or `AGENTAUDIT_HOME` env var:
 ```bash
+# Linux/macOS:
 export AGENTAUDIT_HOME="$HOME/.claude/skills/agentaudit"
+# Windows (PowerShell):
+$env:AGENTAUDIT_HOME = "$HOME\.claude\skills\agentaudit"
 ```
 
 ___
@@ -72,11 +75,9 @@ If you are about to execute ANY of these commands — **STOP. Do NOT run them.**
 **Instead, ALWAYS run the gate script first:**
 
 ```bash
-# Cross-platform (Windows/macOS/Linux):
-node $AGENTAUDIT_HOME/scripts/gate.mjs <manager> <package>
-
-# Unix-only alternative:
-bash $AGENTAUDIT_HOME/scripts/gate.sh <manager> <package>
+# Pick ONE (same exit codes and output format):
+node $AGENTAUDIT_HOME/scripts/gate.mjs <manager> <package>   # Node.js
+bash $AGENTAUDIT_HOME/scripts/gate.sh <manager> <package>    # Bash
 ```
 
 Examples:
@@ -131,7 +132,7 @@ Query agentaudit.dev/api
 
 ### Exit Codes
 
-**gate.sh** (security gate — primary script):
+**gate.mjs / gate.sh** (security gate — primary script):
 
 | Code | Meaning | Action |
 |------|---------|--------|
@@ -140,7 +141,7 @@ Query agentaudit.dev/api
 | 2 | WARN | Review findings (score 40-69) OR registry unreachable |
 | 3 | UNKNOWN | Not yet audited. Opportunity to audit and contribute. |
 
-**check.sh** (manual lookup — informational):
+**check.mjs / check.sh** (manual lookup — informational):
 
 | Code | Meaning |
 |------|---------|
@@ -148,7 +149,7 @@ Query agentaudit.dev/api
 | 1 | Missing dependency (curl/jq) |
 | 2 | Registry unreachable |
 
-**upload.sh** (report submission):
+**upload.mjs / upload.sh** (report submission):
 
 | Code | Meaning |
 |------|---------|
@@ -156,7 +157,7 @@ Query agentaudit.dev/api
 | 1 | Validation error, auth failure, or upload error |
 | 28 | Curl timeout (server may still have accepted) |
 
-**verify.sh** (file integrity check):
+**verify.sh** (file integrity check — Unix only):
 
 | Code | Meaning |
 |------|---------|
@@ -215,7 +216,7 @@ When exit code 3 occurs:
    ```
 
 2. **If user chooses audit**:
-   - Read audit checklist: `cat $AGENTAUDIT_HOME/prompts/audit-prompt.md`
+   - Read the file `$AGENTAUDIT_HOME/prompts/audit-prompt.md` (use your file reading tool)
    - Analyze package source against security patterns
    - Build JSON report (format: [REPORT-FORMAT.md](references/REPORT-FORMAT.md))
    - Submit: `node $AGENTAUDIT_HOME/scripts/upload.mjs report.json`
@@ -356,11 +357,7 @@ Agents analyze code for security issues. Backend handles mechanical tasks:
 Without the subdirectory path, the backend downloads the **entire repository** (potentially 30k+ files),
 causing timeouts and enrichment failure. The backend parses the `/tree/ref/subdir` path automatically.
 
-**Benefits**:
-- Simpler agent interface
-- Consistent version extraction
-- Reproducible builds
-- Supply chain security
+**Benefits**: Simpler agent interface, consistent version extraction, reproducible builds, supply chain security.
 
 ___
 
@@ -477,7 +474,7 @@ ___
 **API key lookup priority**: env var → skill-local → user-level config.
 Both credential files are created during registration so the key isn't lost if you re-clone the skill.
 
-**Key rotation**: `bash scripts/rotate-key.sh` — invalidates old key, saves new one to both locations.
+**Key rotation**: `bash scripts/rotate-key.sh` (Unix) — invalidates old key, saves new one to both locations.
 
 **Never set `AGENTAUDIT_REGISTRY_URL`** — security risk!
 

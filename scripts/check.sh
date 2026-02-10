@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # check.sh — Manual package check against AgentAudit registry
 # Usage: bash check.sh <package-name>
+#        bash check.sh --hash <sha256|git-sha|purl|swhid>
 # Returns trust score and findings without installing anything.
 set -euo pipefail
 
@@ -14,7 +15,9 @@ for cmd in jq curl; do
 done
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: check.sh <package-name>" >&2; exit 1
+  echo "Usage: check.sh <package-name>" >&2
+  echo "       check.sh --hash|-H <sha256|git-sha|purl|swhid>" >&2
+  exit 1
 fi
 
 # Load shared helpers
@@ -22,6 +25,55 @@ source "$SCRIPT_DIR/_load-key.sh"
 source "$SCRIPT_DIR/_curl-retry.sh"
 API_KEY="$(load_api_key)"
 
+# ── Hash Lookup Mode ──
+if [[ "$1" == "--hash" || "$1" == "-H" ]]; then
+  if [[ $# -lt 2 ]]; then
+    echo "Usage: check.sh --hash <hash-value>" >&2; exit 1
+  fi
+  HASH="$2"
+  HASH_ENCODED="$(printf '%s' "$HASH" | python3 -c "import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read(), safe=''))" 2>/dev/null \
+    || printf '%s' "$HASH" | jq -sRr @uri 2>/dev/null \
+    || echo "$HASH")"
+
+  echo "🔍 Looking up hash '${HASH}' against ${API_URL}..."
+  echo ""
+
+  LOOKUP_ARGS=(-sL -f --max-time 10 "${API_URL}/api/lookup?hash=${HASH_ENCODED}")
+  [[ -n "$API_KEY" ]] && LOOKUP_ARGS+=(-H "Authorization: Bearer ${API_KEY}")
+
+  LOOKUP_RESPONSE="$(curl_retry "${LOOKUP_ARGS[@]}")" || {
+    echo "⚠️  Registry unreachable. Cannot look up hash."
+    exit 2
+  }
+
+  DETECTED_TYPE=$(echo "$LOOKUP_RESPONSE" | jq -r '.detected_type // "unknown"')
+  TOTAL=$(echo "$LOOKUP_RESPONSE" | jq '.total_matches // 0')
+  REPORT_COUNT=$(echo "$LOOKUP_RESPONSE" | jq '.reports | length')
+  FINDING_COUNT=$(echo "$LOOKUP_RESPONSE" | jq '.findings | length')
+
+  echo "   Type: ${DETECTED_TYPE}"
+  echo "   Matches: ${TOTAL} (${REPORT_COUNT} reports, ${FINDING_COUNT} findings)"
+  echo ""
+
+  if [[ "$REPORT_COUNT" -gt 0 ]]; then
+    echo "   📋 Reports:"
+    echo "$LOOKUP_RESPONSE" | jq -r '.reports[] | "   • \(.skill_slug) — score \(.risk_score), matched \(.matched_field)"'
+    echo ""
+  fi
+
+  if [[ "$FINDING_COUNT" -gt 0 ]]; then
+    echo "   🔎 Findings:"
+    echo "$LOOKUP_RESPONSE" | jq -r '.findings[] | "   • [\(.severity | ascii_upcase)] \(.asf_id): \(.title) (matched \(.matched_field))"'
+    echo ""
+  fi
+
+  if [[ "$TOTAL" -eq 0 ]]; then
+    echo "📭 No audit data matches this hash."
+  fi
+  exit 0
+fi
+
+# ── Package Name Mode ──
 PKG="$1"
 PKG_ENCODED="$(printf '%s' "$PKG" | python3 -c "import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read(), safe=''))" 2>/dev/null \
   || printf '%s' "$PKG" | jq -sRr @uri 2>/dev/null \
