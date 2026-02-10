@@ -178,6 +178,14 @@ After classifying real vs. by-design, filter out **false positives** — pattern
 
 **CRITICAL: ALL text fields (`title`, `description`, `remediation`) MUST be written in ENGLISH. This is a strict requirement for the AgentAudit registry.**
 
+**source_url rules:** The `source_url` field MUST point to a **source code repository** — never a product website, API endpoint, or marketing page.
+- **Best:** GitHub/GitLab repository URL (e.g., `https://github.com/owner/repo`)
+- **OK:** ClaWHub URL (e.g., `https://clawhub.ai/skill-slug`)
+- **OK:** npm/PyPI package URL as last resort
+- **NEVER:** Company websites (e.g., `hotdogornot.xyz`), API URLs, app URLs
+
+To find the source_url: check `package.json` → `repository.url`, `_meta.json` → `source`/`repository`, `README.md` → GitHub links. If none found, use `https://clawhub.ai/{slug}` for ClaWHub skills or the npm/PyPI URL.
+
 Produce a JSON report in this format:
 
 ```json
