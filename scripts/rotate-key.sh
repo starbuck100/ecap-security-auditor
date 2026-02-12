@@ -58,7 +58,7 @@ if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
 
   echo "✅ Key rotated successfully!"
   echo "   Agent: $AGENT_NAME"
-  echo "   New key: ${NEW_KEY:0:10}..."
+  echo "   New key: ${NEW_KEY:0:6}...${NEW_KEY: -4}"
   echo ""
   echo "   Saved to:"
   echo "     • $SKILL_CRED_FILE"

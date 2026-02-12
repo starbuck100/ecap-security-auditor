@@ -1,37 +1,21 @@
-# Credentials - NEVER commit
+# Credentials (NEVER publish)
 config/credentials.json
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-dist/
-build/
+# Test data (internal only)
+tests/packages/
+tests/v2/
+tests/QA-*.md
+tests/V2-*.md
+tests/VALIDATION-*.md
+tests/E2E-*.md
+tests/RESEARCH-*.md
+tests/benchmark.mjs
+tests/test-packages.json
 
-# Reports & internal docs (local only)
-reports/
-*.report.json
-*-TEST*.md
-*-REPORT*.md
-*-REVIEW*.md
-*-RESULTS*.md
-*-SPEC*.md
-*-backup.md
-*-backup-*
-*-PLAN*.md
-*-ANALYSIS*.md
-CHANGELOG.md
-IMPLEMENTATION_SUMMARY.md
-VALIDATION_REPORT.md
+# Prompt backups
+prompts/audit-prompt-v1.md
+prompts/audit-prompt-v2.md
 
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.bak
-.clawdhub/
+# ClawHub internal
 .clawhub/
+.clawhubignore

@@ -6,7 +6,7 @@ Common issues and edge cases when using AgentAudit.
 
 | Situation | Behavior | Rationale |
 |-----------|----------|-----------|
-| API down (timeout, 5xx) | **Default-deny.** Warn user: "AgentAudit API unreachable. Cannot verify package safety. Retry in 5 minutes or proceed at your own risk?" | Security over convenience |
+| API down (timeout, 5xx) | **Default-warn** (exit 2). Agent pauses, shows warning: "AgentAudit API unreachable. Cannot verify package safety. Retry in 5 minutes or proceed at your own risk?" Package is NOT auto-installed. | Security over convenience |
 | Upload fails (network error) | Retry once. If still fails, save report to `reports/<package>-<date>.json` locally. Warn user. | Don't lose audit work |
 | Hash mismatch | **Hard stop.** But note: could be a legitimate update if package version changed since last audit. Check if version differs → if yes, re-audit. If same version → likely tampered. | Version-aware integrity |
 | Rate limited (HTTP 429) | Wait 2 minutes, retry. If still limited, save locally and upload later. | Respect API limits |

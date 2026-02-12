@@ -20,6 +20,26 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API_URL = 'https://www.agentaudit.dev';
 
+// ── Helpers ──────────────────────────────────────────────
+
+function writeCredentials(filePath, data) {
+  const json = JSON.stringify(data, null, 2);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, json, { mode: 0o600 });
+}
+
+async function validateKeyAgainstServer(apiKey) {
+  try {
+    const res = await fetch(`${API_URL}/api/auth/validate`, {
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(5_000),
+    });
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
 // ── Args ─────────────────────────────────────────────────
 
 const agentName = process.argv[2];
@@ -29,41 +49,46 @@ if (!agentName) {
   process.exit(1);
 }
 
+// Validate agent name (parity with register.sh)
+if (!/^[a-zA-Z0-9._-]{2,64}$/.test(agentName)) {
+  console.error('Invalid agent name. Use only alphanumeric, dashes, underscores, dots (2-64 chars).');
+  process.exit(1);
+}
+
 // ── Check existing key ───────────────────────────────────
 
 const skillCredDir = path.join(__dirname, '..', 'config');
 const skillCredFile = path.join(skillCredDir, 'credentials.json');
-
-if (fs.existsSync(skillCredFile)) {
-  try {
-    const existing = JSON.parse(fs.readFileSync(skillCredFile, 'utf8'));
-    if (existing.api_key) {
-      console.log(`Already registered as "${existing.agent_name || 'unknown'}".`);
-      console.log(`API key exists at: ${skillCredFile}`);
-      console.log('To rotate your key: node scripts/rotate-key.mjs');
-      console.log('To re-register: delete the config/credentials.json file first.');
-      process.exit(0);
-    }
-  } catch {}
-}
-
 const home = process.env.HOME || process.env.USERPROFILE || '';
 const xdg = process.env.XDG_CONFIG_HOME || path.join(home, '.config');
 const userCredDir = path.join(xdg, 'agentaudit');
 const userCredFile = path.join(userCredDir, 'credentials.json');
 
-if (fs.existsSync(userCredFile)) {
-  try {
-    const existing = JSON.parse(fs.readFileSync(userCredFile, 'utf8'));
-    if (existing.api_key) {
-      console.log(`Found existing key in user config: ${userCredFile}`);
-      console.log('Copying to skill-local config...');
-      fs.mkdirSync(skillCredDir, { recursive: true });
-      fs.writeFileSync(skillCredFile, JSON.stringify({ api_key: existing.api_key, agent_name: existing.agent_name }, null, 2));
-      console.log('Done! Both credential files are now in sync.');
-      process.exit(0);
-    }
-  } catch {}
+// Check both credential locations and validate against server
+for (const checkFile of [skillCredFile, userCredFile]) {
+  if (fs.existsSync(checkFile)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(checkFile, 'utf8'));
+      if (existing.api_key) {
+        const valid = await validateKeyAgainstServer(existing.api_key);
+        if (valid) {
+          console.log(`Already registered as "${existing.agent_name || 'unknown'}". Key validated against server.`);
+          console.log(`  Key found in ${checkFile}`);
+          // Ensure both locations have the key
+          if (checkFile === userCredFile && !fs.existsSync(skillCredFile)) {
+            writeCredentials(skillCredFile, { api_key: existing.api_key, agent_name: existing.agent_name });
+            console.log(`  Restored skill-local copy to: ${skillCredFile}`);
+          }
+          process.exit(0);
+        } else {
+          console.log(`Cached key in ${checkFile} is stale (server validation failed). Re-registering...`);
+          try { fs.unlinkSync(skillCredFile); } catch {}
+          try { fs.unlinkSync(userCredFile); } catch {}
+          break;
+        }
+      }
+    } catch {}
+  }
 }
 
 // ── Register ─────────────────────────────────────────────
@@ -92,15 +117,13 @@ if (!res.ok) {
 const data = await res.json();
 const cred = { api_key: data.api_key, agent_name: data.agent_name };
 
-// Save to skill-local
-fs.mkdirSync(skillCredDir, { recursive: true });
-fs.writeFileSync(skillCredFile, JSON.stringify(cred, null, 2));
+// Save to skill-local (mode 600 — only owner can read)
+writeCredentials(skillCredFile, cred);
 console.log(`Saved to: ${skillCredFile}`);
 
-// Save to user-level backup
+// Save to user-level backup (mode 600)
 try {
-  fs.mkdirSync(userCredDir, { recursive: true });
-  fs.writeFileSync(userCredFile, JSON.stringify(cred, null, 2));
+  writeCredentials(userCredFile, cred);
   console.log(`Backup saved to: ${userCredFile}`);
 } catch (err) {
   console.log(`Could not save user-level backup: ${err.message}`);

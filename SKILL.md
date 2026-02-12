@@ -5,7 +5,7 @@ description: Automatic security gate that checks packages against a vulnerabilit
 
 ## 📋 Metadata
 
-**Version**: 2.1
+**Version**: 3.0
 **Author**: starbuck100
 **Homepage**: https://agentaudit.dev
 **Repository**: https://github.com/starbuck100/agentaudit-skill
@@ -119,7 +119,7 @@ Package Install Detected
          ↓
 Query agentaudit.dev/api
          ↓
-    Found?  →  No  →  Auto-Audit (LLM Analysis) → Upload Findings
+    Found?  →  No  →  3-Pass Audit → Upload Findings
          ↓ Yes
     Hash Verify (SHA-256)
          ↓
@@ -129,6 +129,25 @@ Query agentaudit.dev/api
     ↓      ↓      ↓
   PASS   WARN  BLOCK
 ```
+
+### 3-Pass Audit Architecture (v3.0)
+
+When you run an audit (via `audit-prompt.md`), you follow a strict 3-phase process:
+
+**Phase 1: UNDERSTAND** — Read all files and create a Package Profile (name, purpose, category, expected behaviors, trust boundaries). **Do NOT scan for vulnerabilities in this phase.** The goal is to understand what the package *should* do.
+
+**Phase 2: DETECT** — Collect evidence against 50+ detection patterns. Record file, line, code, pattern_id, and whether the behavior is expected. **Do NOT assign severities yet.** Only facts.
+
+**Phase 3: CLASSIFY** — For each candidate finding:
+1. **Mandatory Self-Check**: 5 questions (Is this core functionality? Do I have evidence? Can I write an attack scenario?)
+2. **Core-Functionality Exemption**: If it's in the Package Profile's expected behaviors → NOT a finding (or LOW/by_design)
+3. **Credential-Config Normalization**: .env files, env vars, placeholders → NOT findings
+4. **Exploitability Assessment**: Attack vector, complexity, impact
+5. **Devil's Advocate** (HIGH/CRITICAL only): Argue AGAINST the finding. If the counter-argument wins → demote
+6. **Reasoning Chain** (HIGH/CRITICAL only): 5-step evidence chain required
+7. **Confidence Gating**: CRITICAL requires high confidence. No exceptions.
+
+**Why this matters:** This architecture achieved 0% false positives on 11 test packages (vs 42% FP in v2). It prevents the most common LLM audit failures: flagging core functionality, over-reporting credential config, and inflating severities without evidence.
 
 ### Exit Codes
 

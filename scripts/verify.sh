@@ -69,7 +69,7 @@ for file in "${FILES[@]}"; do
     echo "⚠️  ${file} — REJECTED (resolves outside project root)" >&2
     continue
   fi
-  REMOTE_HASH=$(echo "$RESPONSE" | jq -r ".files[\"${file}\"].sha256 // empty")
+  REMOTE_HASH=$(echo "$RESPONSE" | jq -r --arg f "$file" '.files[$f].sha256 // empty')
 
   if [ -z "$REMOTE_HASH" ] || [ "$REMOTE_HASH" = "null" ]; then
     echo "⚠️  ${file} — not tracked by registry"
