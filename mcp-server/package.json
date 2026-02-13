@@ -1,6 +1,6 @@
 {
   "name": "agentaudit",
-  "version": "3.9.0",
+  "version": "3.9.1",
   "description": "Security scanner for AI packages — MCP server + CLI",
   "type": "module",
   "bin": {

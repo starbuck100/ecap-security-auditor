@@ -155,7 +155,7 @@ function multiSelect(items, { title = 'Select items', hint = 'Space=toggle  ↑�
         process.stdin.pause();
         process.stdin.removeListener('data', onData);
         console.log();
-        process.exit(0);
+        process.exitCode = 0; return;
       }
       
       // Enter
@@ -1502,7 +1502,7 @@ async function main() {
   
   if (args[0] === '-v' || args[0] === '--version') {
     console.log(`agentaudit ${getVersion()}`);
-    process.exit(0);
+    process.exitCode = 0; return;
   }
   
   if (args[0] === '--help' || args[0] === '-h') {
@@ -1551,7 +1551,7 @@ async function main() {
     console.log(`    ${c.dim}Add to your MCP config:${c.reset}`);
     console.log(`    ${c.dim}{ "agentaudit": { "command": "npx", "args": ["-y", "agentaudit"] } }${c.reset}`);
     console.log();
-    process.exit(0);
+    process.exitCode = 0; return;
   }
   
   // Default no-arg → discover
@@ -1576,7 +1576,8 @@ async function main() {
     const names = targets.filter(t => !t.startsWith('--'));
     if (names.length === 0) {
       console.log(`  ${c.red}Error: package name required${c.reset}`);
-      process.exit(2);
+      process.exitCode = 2;
+      return;
     }
     const results = [];
     for (const t of names) {
@@ -1586,7 +1587,7 @@ async function main() {
     if (jsonMode) {
       console.log(JSON.stringify(results.length === 1 ? (results[0] || { error: 'not_found' }) : results, null, 2));
     }
-    process.exit(0);
+    process.exitCode = 0; return;
     return;
   }
   
@@ -1597,7 +1598,8 @@ async function main() {
       console.log(`  ${c.red}Error: at least one repository URL required${c.reset}`);
       console.log(`  ${c.dim}Tip: use ${c.cyan}agentaudit discover${c.dim} to find & check locally installed MCP servers${c.reset}`);
       console.log(`  ${c.dim}Tip: use ${c.cyan}agentaudit audit <url>${c.dim} for a deep LLM-powered audit${c.reset}`);
-      process.exit(2);
+      process.exitCode = 2;
+      return;
     }
     
     // --deep redirects to audit flow
@@ -1607,7 +1609,7 @@ async function main() {
         const report = await auditRepo(url);
         if (report?.findings?.length > 0) hasFindings = true;
       }
-      process.exit(hasFindings ? 1 : 0);
+      process.exitCode = hasFindings ? 1 : 0;
       return;
     }
     
@@ -1638,9 +1640,9 @@ async function main() {
       printSummary(results);
     }
     
-    if (hadErrors && results.length === 0) process.exit(2);
+    if (hadErrors && results.length === 0) { process.exitCode = 2; return; }
     const totalFindings = results.reduce((sum, r) => sum + r.findings.length, 0);
-    process.exit(totalFindings > 0 ? 1 : 0);
+    process.exitCode = totalFindings > 0 ? 1 : 0;
     return;
   }
   
@@ -1648,7 +1650,8 @@ async function main() {
     const urls = targets.filter(t => !t.startsWith('--'));
     if (urls.length === 0) {
       console.log(`  ${c.red}Error: at least one repository URL required${c.reset}`);
-      process.exit(2);
+      process.exitCode = 2;
+      return;
     }
     
     let hasFindings = false;
@@ -1656,16 +1659,16 @@ async function main() {
       const report = await auditRepo(url);
       if (report?.findings?.length > 0) hasFindings = true;
     }
-    process.exit(hasFindings ? 1 : 0);
+    process.exitCode = hasFindings ? 1 : 0;
     return;
   }
   
   console.log(`  ${c.red}Unknown command: ${command}${c.reset}`);
   console.log(`  ${c.dim}Run agentaudit --help for usage${c.reset}`);
-  process.exit(2);
+  process.exitCode = 2;
 }
 
 main().catch(err => {
   console.error(`${c.red}Error: ${err.message}${c.reset}`);
-  process.exit(2);
+  process.exitCode = 2;
 });
