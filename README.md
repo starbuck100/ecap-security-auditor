@@ -83,14 +83,23 @@ ln -s "$(pwd)" ~/.cursor/skills/agentaudit     # Cursor
 ln -s "$(pwd)" ~/.windsurf/skills/agentaudit   # Windsurf
 ```
 
-### Option 3: MCP Server + CLI <sup>(for Claude Desktop, Cursor, Windsurf)</sup>
+### Option 3: npm package <sup>(CLI + MCP Server, recommended for Claude Desktop/Cursor/Windsurf)</sup>
 
 ```bash
-git clone https://github.com/starbuck100/agentaudit-skill.git
-cd agentaudit-skill/mcp-server
-npm install
-node cli.mjs setup    # Register + get API key (interactive)
-node cli.mjs scan https://github.com/owner/repo   # Scan a repo
+# Install globally
+npm install -g agentaudit
+
+# Discover MCP servers in your editors
+agentaudit
+
+# Quick scan a repo
+agentaudit scan https://github.com/owner/repo
+
+# Deep LLM audit
+agentaudit audit https://github.com/owner/repo
+
+# Look up in registry
+agentaudit lookup fastmcp
 ```
 
 Add to your MCP config (Claude Desktop: `~/.claude/mcp.json`, Cursor: `.cursor/mcp.json`):
@@ -98,14 +107,14 @@ Add to your MCP config (Claude Desktop: `~/.claude/mcp.json`, Cursor: `.cursor/m
 {
   "mcpServers": {
     "agentaudit": {
-      "command": "node",
-      "args": ["/path/to/agentaudit-skill/mcp-server/index.mjs"]
+      "command": "npx",
+      "args": ["-y", "agentaudit"]
     }
   }
 }
 ```
 
-See **[mcp-server/README.md](mcp-server/README.md)** for full MCP setup docs.
+See **[mcp-server/README.md](mcp-server/README.md)** for full CLI & MCP docs, or visit [npmjs.com/package/agentaudit](https://www.npmjs.com/package/agentaudit).
 
 ### Option 4: ClawHub <sup>(OpenClaw only)</sup>
 
