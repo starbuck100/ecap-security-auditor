@@ -1,65 +1,109 @@
-# AgentAudit MCP Server
+# AgentAudit MCP Server & CLI
 
-Security audit capabilities for AI agents via the Model Context Protocol.
+Security scanner for AI packages — MCP server for agents + standalone CLI for humans.
 
-## Tools
+## Quick Start
 
-### `audit_package`
-Clone a Git repository and prepare it for security analysis. Returns source code + audit methodology for the calling agent to analyze.
+```bash
+git clone https://github.com/starbuck100/agentaudit-skill.git
+cd agentaudit-skill/mcp-server
+npm install
 
-```
-Input:  { "source_url": "https://github.com/owner/repo" }
-Output: Source code files + 3-pass audit instructions
-```
+# Interactive setup (register + API key)
+node cli.mjs setup
 
-The calling agent's LLM performs the actual analysis using the returned audit prompt, then calls `submit_report` with the results.
+# Scan repos
+node cli.mjs scan https://github.com/owner/repo
+node cli.mjs scan repo1 repo2 repo3
 
-### `submit_report`
-Upload a completed audit report to the AgentAudit registry.
-
-```
-Input:  { "report": { "skill_slug": "...", "source_url": "...", "risk_score": 0-100, ... } }
-Output: Confirmation with report ID and registry URL
+# Look up in registry
+node cli.mjs check fastmcp
 ```
 
-### `check_package`
-Look up a package in the AgentAudit security registry.
+`setup` registers a free agent account and stores the API key in `~/.config/agentaudit/credentials.json`. No manual config needed.
+
+## CLI
 
 ```
-Input:  { "package_name": "fastmcp" }
-Output: Latest audit results, risk score, findings
+agentaudit setup                            Register + configure API key
+agentaudit scan <repo-url> [repo-url...]    Scan repositories
+agentaudit check <package-name>             Look up in registry
 ```
 
-## Setup
+**Scan** clones repos, detects tools/prompts, runs static analysis (prompt injection, shell exec, SQL injection, secrets, SSL, path traversal, CORS, telemetry), and checks the AgentAudit registry — all in one command.
 
-### Claude Desktop / Claude Code
-Add to your MCP config (`~/.claude/mcp.json`):
+```
+◉  fastmcp  https://github.com/jlowin/fastmcp
+│  Python mcp-server  45 files scanned in 1.9s
+│
+├──  tool    Widget                        ✔ ok
+└──  tool    weather                       ✔ ok
+│
+└──  registry  SAFE  Risk 0  https://agentaudit.dev/skills/fastmcp
+```
+
+## MCP Server
+
+For AI agents in Claude Desktop, Cursor, Windsurf, or any MCP-compatible client.
+
+### Tools
+
+| Tool | Description |
+|------|-------------|
+| `audit_package` | Clone a repo, return source code + audit prompt for LLM analysis |
+| `submit_report` | Upload completed audit report to agentaudit.dev |
+| `check_package` | Look up a package in the registry |
+
+### Configure in Claude Desktop / Claude Code
+
+`~/.claude/mcp.json`:
 ```json
 {
   "mcpServers": {
     "agentaudit": {
       "command": "node",
-      "args": ["/path/to/agentaudit/mcp-server/index.mjs"]
+      "args": ["/path/to/agentaudit-skill/mcp-server/index.mjs"]
     }
   }
 }
 ```
 
-### Cursor
-Add to `.cursor/mcp.json`:
+### Configure in Cursor
+
+`.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
     "agentaudit": {
       "command": "node",
-      "args": ["/path/to/agentaudit/mcp-server/index.mjs"]
+      "args": ["/path/to/agentaudit-skill/mcp-server/index.mjs"]
     }
   }
 }
 ```
 
-### Environment Variables
-- `AGENTAUDIT_API_KEY` — API key for uploading reports (or use `config/credentials.json`)
+### Configure in Windsurf
+
+`~/.codeium/windsurf/mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "agentaudit": {
+      "command": "node",
+      "args": ["/path/to/agentaudit-skill/mcp-server/index.mjs"]
+    }
+  }
+}
+```
+
+### Authentication
+
+The MCP server finds credentials automatically from (in order):
+1. `AGENTAUDIT_API_KEY` environment variable
+2. `config/credentials.json` (skill-local)
+3. `~/.config/agentaudit/credentials.json` (user-level, created by `setup`)
+
+Run `node cli.mjs setup` once — both CLI and MCP server will use the same key.
 
 ## How it Works
 
@@ -74,13 +118,10 @@ Agent's LLM analyzes code (3-pass: UNDERSTAND → DETECT → CLASSIFY)
          ↓
 Agent calls submit_report(report_json)
          ↓
-Report uploaded to agentaudit.dev/skills/{slug}
+Report published at agentaudit.dev/skills/{slug}
 ```
-
-The audit quality depends on the calling agent's model. Works best with Claude Opus/Sonnet, GPT-4, or similar capable models.
 
 ## Requirements
 
 - Node.js 18+
 - Git (for cloning repos)
-- `@modelcontextprotocol/sdk` (installed via npm)

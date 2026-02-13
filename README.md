@@ -83,7 +83,31 @@ ln -s "$(pwd)" ~/.cursor/skills/agentaudit     # Cursor
 ln -s "$(pwd)" ~/.windsurf/skills/agentaudit   # Windsurf
 ```
 
-### Option 3: ClawHub <sup>(OpenClaw only)</sup>
+### Option 3: MCP Server + CLI <sup>(for Claude Desktop, Cursor, Windsurf)</sup>
+
+```bash
+git clone https://github.com/starbuck100/agentaudit-skill.git
+cd agentaudit-skill/mcp-server
+npm install
+node cli.mjs setup    # Register + get API key (interactive)
+node cli.mjs scan https://github.com/owner/repo   # Scan a repo
+```
+
+Add to your MCP config (Claude Desktop: `~/.claude/mcp.json`, Cursor: `.cursor/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "agentaudit": {
+      "command": "node",
+      "args": ["/path/to/agentaudit-skill/mcp-server/index.mjs"]
+    }
+  }
+}
+```
+
+See **[mcp-server/README.md](mcp-server/README.md)** for full MCP setup docs.
+
+### Option 4: ClawHub <sup>(OpenClaw only)</sup>
 
 ```bash
 clawhub install agentaudit
