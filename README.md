@@ -34,7 +34,7 @@
 - [Prerequisites](#-prerequisites)
 - [Limitations](#️-important-limitations--honest-expectations)
 - [FAQ](#-faq)
-- [What's New in v2](#-whats-new-in-v2)
+- [What's New in v2 & v3](#-whats-new)
 - [Contributing](#-contributing)
 - [License](#-license)
 
